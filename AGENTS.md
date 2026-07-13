@@ -1,3 +1,11 @@
+# Local fork boundary
+
+- This checkout is the source authority for custom Codex product, protocol, app-server, and harness changes.
+- `D:\dev\codex-dev` is the machine-local integration hub and isolated build/home wrapper; it is not another source checkout.
+- `D:\dev\codex-review` owns companion-only review behavior. Do not add companion implementation to `codex-core` or this repository unless a reusable protocol need is explicitly in scope.
+- Use `D:\dev\codex-dev\ecosystem.json` instead of duplicating machine paths.
+- Preserve the isolation between `C:\Users\EthanO\.codex` and `C:\Users\EthanO\.codex-dev`.
+
 # Rust/codex-rs
 
 In the codex-rs folder where the rust code lives:
