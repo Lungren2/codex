@@ -1,0 +1,142 @@
+.compact-review {
+  display: grid;
+  grid-template-areas: "bar bar" "rail diff";
+  grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
+  grid-template-rows: 2.25rem minmax(0, 1fr);
+  block-size: 100vh;
+  overflow: hidden;
+  background: #111;
+  color: #c9cecb;
+  font-size: 0.75rem;
+}
+
+.compact-bar {
+  grid-area: bar;
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 1rem;
+  padding-inline: 0.7rem;
+  border-block-end: 1px solid #292b2a;
+  background: #0e0f0f;
+  color: #777d7a;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+.compact-bar strong { color: #e3e6e4; font-size: 0.7rem; }
+.compact-state { margin-inline-start: auto; color: #55c891; }
+.compact-state--stale,
+.compact-state--unavailable { color: #e06a64; }
+
+.compact-rail {
+  grid-area: rail;
+  display: grid;
+  min-inline-size: 0;
+  min-block-size: 0;
+  grid-template-rows: minmax(7rem, 0.8fr) auto auto;
+  overflow: hidden;
+  border-inline-end: 1px solid #292b2a;
+  background: #101111;
+}
+
+.file-list {
+  min-block-size: 0;
+  overflow-y: auto;
+  padding-block: 0.25rem;
+  scrollbar-width: thin;
+}
+
+.file-list button {
+  display: grid;
+  inline-size: 100%;
+  min-block-size: 1.7rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border: 0;
+  border-inline-start: 2px solid transparent;
+  background: transparent;
+  color: #9ca39f;
+  font: 0.68rem/1.3 var(--font-mono);
+  text-align: start;
+}
+
+.file-list button:hover { background: #181a19; color: #e1e4e2; }
+.file-list button:focus-visible { outline: 1px solid #4ea9ff; outline-offset: -1px; }
+.file-list button.is-active { border-inline-start-color: #32c987; background: #17241e; color: #e8ebe9; }
+.file-list button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-list small { font-size: 0.6rem; font-weight: 500; }
+.file-list small i { color: #ef6b64; font-style: normal; }
+.file-list small b { color: #48ce8f; font-weight: 500; }
+
+.file-context {
+  display: grid;
+  gap: 0.45rem;
+  max-block-size: 14rem;
+  overflow-y: auto;
+  padding: 0.65rem 0.7rem;
+  border-block: 1px solid #292b2a;
+}
+
+.file-context code { overflow-wrap: anywhere; color: #4bd18e; font-size: 0.66rem; }
+.file-context p { margin: 0; color: #aeb4b1; font-size: 0.68rem; line-height: 1.45; }
+.file-context .context-risk { color: #d2b779; }
+.file-context .context-validation { color: #737a76; }
+
+.compact-comment {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.6rem 0.7rem 0.7rem;
+}
+
+.scope-line { display: flex; min-inline-size: 0; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.scope-line > span { overflow: hidden; color: #777e7a; font: 0.6rem var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.scope-line select { max-inline-size: 7.5rem; min-block-size: 1.55rem; padding: 0 1.4rem 0 0.35rem; border: 1px solid #343735; border-radius: 2px; background: #151716; color: #aeb4b1; font-size: 0.62rem; }
+.compact-comment > textarea { min-block-size: 4.5rem; resize: vertical; border: 1px solid #343735; border-radius: 2px; padding: 0.5rem; background: #151716; color: #e2e5e3; font: 0.68rem/1.45 var(--font-sans); }
+.compact-comment > textarea:focus-visible,
+.scope-line select:focus-visible { outline: 1px solid #4ea9ff; outline-offset: 1px; }
+.compact-comment > button { min-block-size: 1.8rem; border: 1px solid #376f57; border-radius: 2px; background: #183c2e; color: #d9eee5; font-size: 0.66rem; font-weight: 650; }
+.compact-comment > button:hover:not(:disabled) { background: #20503d; }
+.compact-comment > button:disabled { opacity: 0.42; cursor: not-allowed; }
+.compact-stale { display: flex; align-items: center; gap: 0.35rem; color: #d2b779; font-size: 0.62rem; }
+.compact-result { min-block-size: 0.8rem; color: #747b77; font-size: 0.6rem; }
+.compact-result--failed { color: #e06a64; }
+.compact-history { display: grid; gap: 0.15rem; margin: 0; padding-block-start: 0.35rem; border-block-start: 1px solid #292b2a; color: #9fa6a2; font-size: 0.62rem; }
+.compact-history span { color: #55c891; font: 0.56rem var(--font-mono); text-transform: uppercase; }
+.compact-comment details { color: #8e9591; font-size: 0.62rem; }
+.compact-comment details textarea { inline-size: 100%; margin-block-start: 0.35rem; background: #151716; color: #bbc1be; }
+
+.compact-diff {
+  grid-area: diff;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+  background: #151616;
+  scrollbar-width: thin;
+}
+
+.compact-diff .diff-stack { gap: 0; padding: 0; }
+.compact-diff .diff-file { margin: 0; border-width: 0 0 1px; border-color: #2d302e; }
+.compact-diff .diff-file--active { outline: none; }
+
+@media (max-width: 52rem) {
+  .compact-review { grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr); }
+  .compact-bar span:nth-of-type(2),
+  .compact-bar span:nth-of-type(4) { display: none; }
+}
+
+@media (max-width: 42rem) {
+  .compact-review {
+    grid-template-areas: "bar" "rail" "diff";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 2.25rem minmax(12rem, 38vh) minmax(0, 1fr);
+  }
+  .compact-rail { grid-template-columns: minmax(10rem, 0.8fr) minmax(12rem, 1fr); grid-template-rows: 1fr auto; border-inline-end: 0; border-block-end: 1px solid #292b2a; }
+  .file-list { grid-row: 1 / 3; border-inline-end: 1px solid #292b2a; }
+  .file-context { max-block-size: none; border-block-start: 0; }
+  .compact-comment { min-block-size: 0; }
+  .compact-comment > textarea { min-block-size: 2.7rem; }
+}
