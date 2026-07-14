@@ -874,8 +874,6 @@ async fn spawn_agent_creates_thread_and_sends_prompt() {
 }
 
 #[tokio::test]
-<<<<<<< HEAD
-=======
 async fn ephemeral_spawn_does_not_persist_agent_graph_edge() {
     let (home, mut config) = test_config().await;
     config.ephemeral = true;
@@ -912,7 +910,6 @@ async fn ephemeral_spawn_does_not_persist_agent_graph_edge() {
 }
 
 #[tokio::test]
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
 async fn spawn_agent_can_fork_parent_thread_history_with_sanitized_items() {
     let harness = AgentControlHarness::new().await;
     let mut parent_config = harness.config.clone();
@@ -2394,20 +2391,6 @@ async fn spawn_thread_subagent_uses_role_specific_nickname_candidates() {
 
 #[tokio::test]
 async fn resume_thread_subagent_restores_stored_metadata() {
-<<<<<<< HEAD
-    let (home, mut config) = test_config().await;
-    config
-        .features
-        .enable(Feature::Sqlite)
-        .expect("test config should allow sqlite");
-    let state_db = init_state_db(&config).await;
-    let manager = ThreadManager::with_models_provider_home_and_state_for_tests(
-        CodexAuth::from_api_key("dummy"),
-        config.model_provider.clone(),
-        config.codex_home.to_path_buf(),
-        std::sync::Arc::new(codex_exec_server::EnvironmentManager::default_for_tests()),
-        state_db.clone(),
-=======
     let (home, config) = test_config().await;
     let thread_store = Arc::new(InMemoryThreadStore::default());
     let auth_manager = AuthManager::from_auth_for_testing(CodexAuth::from_api_key("dummy"));
@@ -2425,7 +2408,6 @@ async fn resume_thread_subagent_restores_stored_metadata() {
         uuid::Uuid::new_v4().to_string(),
         /*attestation_provider*/ None,
         /*external_time_provider*/ None,
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
     );
     let control = manager.agent_control();
     let harness = AgentControlHarness {

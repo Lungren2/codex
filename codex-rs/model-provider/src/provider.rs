@@ -715,15 +715,6 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(
-<<<<<<< HEAD
-            model_ids,
-            vec![
-                "openai.gpt-5.5",
-                "openai.gpt-5.4",
-                "openai.gpt-5.6-sol",
-                "openai.gpt-5.6-terra",
-                "openai.gpt-5.6-luna",
-=======
             models,
             vec![
                 ("openai.gpt-5.6-sol", "GPT-5.6 Sol"),
@@ -731,7 +722,6 @@ mod tests {
                 ("openai.gpt-5.6-luna", "GPT-5.6 Luna"),
                 ("openai.gpt-5.5", "GPT-5.5"),
                 ("openai.gpt-5.4", "GPT-5.4"),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
             ]
         );
 

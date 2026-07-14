@@ -111,34 +111,6 @@ async fn handle_spawn_agent(
     let communication = communication_from_tool_message(author, new_agent_path.clone(), message);
     let context = AgentCommunicationContext::new(AgentCommunicationKind::Spawn, session.thread_id);
     let spawned_agent = Box::pin(
-<<<<<<< HEAD
-        session.services.agent_control.spawn_agent_with_metadata(
-            config,
-            match initial_operation {
-                Op::UserInput { items, .. }
-                    if items
-                        .iter()
-                        .all(|item| matches!(item, UserInput::Text { .. })) =>
-                {
-                    let author = turn
-                        .session_source
-                        .get_agent_path()
-                        .unwrap_or_else(AgentPath::root);
-                    let communication =
-                        communication_from_tool_message(author, new_agent_path.clone(), message);
-                    Op::InterAgentCommunication { communication }
-                }
-                initial_operation => initial_operation,
-            },
-            Some(spawn_source),
-            SpawnAgentOptions {
-                fork_parent_spawn_call_id: fork_mode.as_ref().map(|_| call_id.clone()),
-                fork_mode,
-                parent_thread_id: Some(session.thread_id),
-                environments: Some(turn.environments.to_selections()),
-            },
-        ),
-=======
         session
             .services
             .agent_control
@@ -154,7 +126,6 @@ async fn handle_spawn_agent(
                     environments: Some(turn.environments.to_selections()),
                 },
             ),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
     )
     .await
     .map_err(collab_spawn_error)?;

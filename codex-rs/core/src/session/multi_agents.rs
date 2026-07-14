@@ -41,11 +41,6 @@ pub(crate) fn effective_multi_agent_mode(turn_context: &TurnContext) -> Option<M
         return None;
     }
 
-<<<<<<< HEAD
-    let multi_agent_mode = match turn_context.effective_reasoning_effort() {
-        Some(ReasoningEffort::Ultra) => MultiAgentMode::Proactive,
-        _ => MultiAgentMode::ExplicitRequestOnly,
-=======
     // A configured hint, including an empty string, defines a custom policy instead of an
     // effort-derived built-in policy.
     let multi_agent_mode = match &turn_context
@@ -58,7 +53,6 @@ pub(crate) fn effective_multi_agent_mode(turn_context: &TurnContext) -> Option<M
             Some(ReasoningEffort::Ultra) => MultiAgentMode::Proactive,
             _ => MultiAgentMode::ExplicitRequestOnly,
         },
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
     };
 
     match &turn_context.session_source {

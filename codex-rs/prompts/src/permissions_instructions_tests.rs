@@ -242,17 +242,6 @@ fn on_request_includes_tool_guidance_alongside_inline_permission_guidance_when_b
 }
 
 #[test]
-<<<<<<< HEAD
-fn auto_review_approvals_append_auto_review_specific_guidance() {
-    let text = approval_text(
-        AskForApproval::OnRequest,
-        ApprovalsReviewer::AutoReview,
-        &Policy::empty(),
-        /*exec_permission_approvals_enabled*/ false,
-        /*request_permissions_tool_enabled*/ false,
-    );
-
-=======
 fn catalog_approval_messages_select_reviewer_variant() {
     let messages = ApprovalMessages {
         on_request: Some("user catalog approvals".to_string()),
@@ -359,7 +348,6 @@ fn auto_review_approvals_append_auto_review_specific_guidance() {
         /*request_permissions_tool_enabled*/ false,
     );
 
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
     assert!(text.contains("`approvals_reviewer` is `auto_review`"));
     assert!(!text.contains("`approvals_reviewer` is `guardian_subagent`"));
     assert!(text.contains("materially safer alternative"));

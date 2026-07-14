@@ -45,10 +45,7 @@ pub enum ReasoningEffort {
     Medium,
     High,
     XHigh,
-<<<<<<< HEAD
-=======
     Max,
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
     Ultra,
     /// A model-defined effort value that this client does not know yet.
     Custom(String),
@@ -64,10 +61,7 @@ impl ReasoningEffort {
             Self::Medium => "medium",
             Self::High => "high",
             Self::XHigh => "xhigh",
-<<<<<<< HEAD
-=======
             Self::Max => "max",
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
             Self::Ultra => "ultra",
             Self::Custom(effort) => effort,
         }
@@ -133,10 +127,7 @@ impl FromStr for ReasoningEffort {
             "medium" => Ok(Self::Medium),
             "high" => Ok(Self::High),
             "xhigh" => Ok(Self::XHigh),
-<<<<<<< HEAD
-=======
             "max" => Ok(Self::Max),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
             "ultra" => Ok(Self::Ultra),
             "" => Err("reasoning_effort must not be empty".to_string()),
             effort => Ok(Self::Custom(effort.to_string())),
@@ -783,10 +774,7 @@ mod tests {
         let deserialized = from_str::<ReasoningEffort>(r#""future""#)
             .expect("custom reasoning effort should deserialize");
         let serialized = to_string(&custom).expect("custom reasoning effort should serialize");
-<<<<<<< HEAD
-=======
         let serialized_max = to_string(&ReasoningEffort::Max).expect("Max should serialize");
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
         let serialized_ultra = to_string(&ReasoningEffort::Ultra).expect("Ultra should serialize");
 
         assert_eq!(
@@ -798,30 +786,20 @@ mod tests {
                 "future".parse(),
                 deserialized,
                 serialized,
-<<<<<<< HEAD
-=======
                 serialized_max,
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
                 serialized_ultra,
                 custom.to_string(),
             ),
             (
                 Ok(ReasoningEffort::High),
-<<<<<<< HEAD
-=======
                 Ok(ReasoningEffort::Max),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
                 Ok(ReasoningEffort::Ultra),
                 Ok(custom.clone()),
                 custom,
                 r#""future""#.to_string(),
                 r#""max""#.to_string(),
                 r#""ultra""#.to_string(),
-<<<<<<< HEAD
-                "max".to_string(),
-=======
                 "future".to_string(),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
             )
         );
     }

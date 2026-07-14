@@ -605,12 +605,9 @@ impl Codex {
             .await;
         let multi_agent_version =
             resolve_multi_agent_version(&conversation_history, inherited_multi_agent_version);
-<<<<<<< HEAD
-=======
         let history_mode = conversation_history.get_history_mode(
             requested_history_mode.unwrap_or_else(|| thread_store.default_history_mode()),
         );
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
         config
             .validate_multi_agent_v2_config()
             .map_err(|err| CodexErr::InvalidRequest(err.to_string()))?;
@@ -3465,23 +3462,10 @@ impl Session {
         {
             items.push(usage_hint_message);
         }
-<<<<<<< HEAD
-        match multi_agents::effective_multi_agent_mode(turn_context) {
-            Some(
-                multi_agent_mode
-                @ (MultiAgentMode::ExplicitRequestOnly | MultiAgentMode::Proactive),
-            ) => {
-                items.push(ContextualUserFragment::into(
-                    MultiAgentModeInstructions::new(multi_agent_mode),
-                ));
-            }
-            Some(MultiAgentMode::None) | None => {}
-=======
         if let Some(multi_agent_mode) = multi_agents::effective_multi_agent_mode(turn_context) {
             items.push(ContextualUserFragment::into(
                 MultiAgentModeInstructions::new(multi_agent_mode),
             ));
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
         }
         if let Some(contextual_user_message) =
             crate::context_manager::updates::build_contextual_user_message(contextual_user_sections)

@@ -801,8 +801,6 @@ impl ThreadManager {
         let (session_source, thread_source) = initial_history
             .get_resumed_session_sources()
             .unwrap_or_else(|| (self.state.session_source.clone(), None));
-<<<<<<< HEAD
-=======
         if let InitialHistory::Resumed(resumed) = &initial_history
             && initial_history.get_multi_agent_version() == Some(MultiAgentVersion::V2)
             && !session_source.is_non_root_agent()
@@ -811,7 +809,6 @@ impl ThreadManager {
                 .restore_v2_agent_metadata(&config, resumed.conversation_id)
                 .await;
         }
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
         Box::pin(self.state.spawn_thread_with_source(
             config,
             initial_history,

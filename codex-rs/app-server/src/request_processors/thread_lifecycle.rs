@@ -630,10 +630,7 @@ pub(super) async fn handle_pending_thread_resume_request(
         active_permission_profile,
         workspace_roots,
         reasoning_effort,
-<<<<<<< HEAD
-=======
         originator,
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
         ..
     } = config_snapshot;
     let instruction_sources = pending.instruction_sources;

@@ -634,11 +634,7 @@ async fn start_thread_seeds_extension_data_for_mcp_and_lifecycle_contributors() 
             session_source: None,
             thread_source: None,
             dynamic_tools: Vec::new(),
-<<<<<<< HEAD
-            metrics_service_name: None,
-=======
             metrics_service_name: Some("codex_work_desktop".to_string()),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
             parent_trace: None,
             environments: Vec::new(),
             thread_extension_init: selected_root_init("selected-a", "env-a"),

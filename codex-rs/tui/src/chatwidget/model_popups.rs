@@ -644,10 +644,7 @@ impl ChatWidget {
             ReasoningEffortConfig::Medium => "Medium".to_string(),
             ReasoningEffortConfig::High => "High".to_string(),
             ReasoningEffortConfig::XHigh => "Extra high".to_string(),
-<<<<<<< HEAD
-=======
             ReasoningEffortConfig::Max => "Max".to_string(),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
             ReasoningEffortConfig::Ultra => "Ultra".to_string(),
             ReasoningEffortConfig::Custom(value) => value.clone(),
         }

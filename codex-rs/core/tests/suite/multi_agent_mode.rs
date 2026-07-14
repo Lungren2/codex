@@ -22,11 +22,7 @@ use pretty_assertions::assert_eq;
 use serde_json::Value;
 use serde_json::json;
 
-<<<<<<< HEAD
-const NO_SPAWN_TEXT: &str = "Do not spawn sub-agents unless the user explicitly asks for sub-agents, delegation, or parallel agent work.";
-=======
 const NO_SPAWN_TEXT: &str = "Any earlier instruction enabling proactive multi-agent delegation no longer applies. Do not spawn sub-agents unless the user or applicable AGENTS.md/skill instructions explicitly ask for sub-agents, delegation, or parallel agent work.";
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
 const PROACTIVE_TEXT: &str = "Proactive multi-agent delegation is active.";
 const CUSTOM_MODE_HINT_TEXT: &str = "Use the configured delegation policy.";
 
@@ -123,8 +119,6 @@ async fn ultra_reasoning_uses_max_and_proactive_mode() -> Result<()> {
 
     let server = start_mock_server().await;
     let response = mount_sse_once(
-<<<<<<< HEAD
-=======
         &server,
         sse(vec![ev_response_created("resp-1"), ev_completed("resp-1")]),
     )
@@ -226,34 +220,11 @@ async fn empty_configured_mode_hint_suppresses_builtin_text() -> Result<()> {
 
     let server = start_mock_server().await;
     let response = mount_sse_once(
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
         &server,
         sse(vec![ev_response_created("resp-1"), ev_completed("resp-1")]),
     )
     .await;
     let test = test_codex()
-<<<<<<< HEAD
-        .with_model_info_override("gpt-5.4", add_ultra_reasoning)
-        .with_config(configure_ultra)
-        .build(&server)
-        .await?;
-
-    submit_turn(&test.codex, "hello", /*effort*/ None).await?;
-
-    let request = response.single_request();
-    assert_eq!(
-        request.body_json()["reasoning"]["effort"].as_str(),
-        Some("max")
-    );
-    let input = request.input();
-    let texts = developer_texts(&input);
-    assert_eq!(
-        (
-            count_containing(&texts, NO_SPAWN_TEXT),
-            count_containing(&texts, PROACTIVE_TEXT),
-        ),
-        (0, 1)
-=======
         .with_config(|config| {
             configure_multi_agent_v2(config);
             config.multi_agent_v2.multi_agent_mode_hint_text = Some(String::new());
@@ -272,7 +243,6 @@ async fn empty_configured_mode_hint_suppresses_builtin_text() -> Result<()> {
             count_containing(&texts, PROACTIVE_TEXT),
         ),
         (1, 0, 0)
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
     );
 
     Ok(())

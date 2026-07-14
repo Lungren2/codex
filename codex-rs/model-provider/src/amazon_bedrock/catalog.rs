@@ -49,21 +49,6 @@ pub(crate) fn static_model_catalog() -> ModelsResponse {
                 "GPT-5.4",
                 /*priority*/ 4,
             ),
-            gpt_5_6_bedrock_model(
-                AMAZON_BEDROCK_GPT_5_6_SOL_MODEL_ID,
-                "Sol",
-                /*priority*/ 2,
-            ),
-            gpt_5_6_bedrock_model(
-                AMAZON_BEDROCK_GPT_5_6_TERRA_MODEL_ID,
-                "Terra",
-                /*priority*/ 3,
-            ),
-            gpt_5_6_bedrock_model(
-                AMAZON_BEDROCK_GPT_5_6_LUNA_MODEL_ID,
-                "Luna",
-                /*priority*/ 4,
-            ),
         ],
     })
 }
@@ -119,18 +104,6 @@ fn gpt_5_6_bedrock_model(
     model
 }
 
-fn gpt_5_6_bedrock_model(bedrock_slug: &str, display_name: &str, priority: i32) -> ModelInfo {
-    let mut model = gpt_5_bedrock_model(GPT_5_5_OPENAI_MODEL_ID, bedrock_slug, priority);
-    model.display_name = display_name.to_string();
-    model
-        .supported_reasoning_levels
-        .push(ReasoningEffortPreset {
-            effort: ReasoningEffort::Custom("max".to_string()),
-            description: "Maximum reasoning depth for the hardest problems".to_string(),
-        });
-    model
-}
-
 fn bundled_openai_model(slug: &str) -> ModelInfo {
     bundled_models_response()
         .unwrap_or_else(|err| panic!("bundled models.json should parse: {err}"))
@@ -158,19 +131,11 @@ mod tests {
                 .map(|model| model.slug.as_str())
                 .collect::<Vec<_>>(),
             vec![
-<<<<<<< HEAD
-                AMAZON_BEDROCK_GPT_5_5_MODEL_ID,
-                AMAZON_BEDROCK_GPT_5_4_MODEL_ID,
-                AMAZON_BEDROCK_GPT_5_6_SOL_MODEL_ID,
-                AMAZON_BEDROCK_GPT_5_6_TERRA_MODEL_ID,
-                AMAZON_BEDROCK_GPT_5_6_LUNA_MODEL_ID,
-=======
                 AMAZON_BEDROCK_GPT_5_6_SOL_MODEL_ID,
                 AMAZON_BEDROCK_GPT_5_6_TERRA_MODEL_ID,
                 AMAZON_BEDROCK_GPT_5_6_LUNA_MODEL_ID,
                 AMAZON_BEDROCK_GPT_5_5_MODEL_ID,
                 AMAZON_BEDROCK_GPT_5_4_MODEL_ID,
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
             ]
         );
     }
@@ -191,9 +156,6 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
-    fn gpt_5_6_bedrock_models_clone_gpt_5_5_config_with_max_reasoning_effort() {
-=======
     fn gpt_5_bedrock_models_do_not_include_availability_nux_or_upgrade() {
         let catalog = static_model_catalog();
 
@@ -204,7 +166,6 @@ mod tests {
 
     #[test]
     fn gpt_5_6_bedrock_models_use_variant_metadata_and_max_reasoning_effort() {
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
         let catalog = static_model_catalog();
         let gpt_5_5 = catalog
             .models
@@ -212,16 +173,6 @@ mod tests {
             .find(|model| model.slug == AMAZON_BEDROCK_GPT_5_5_MODEL_ID)
             .expect("Bedrock catalog should include GPT-5.5");
 
-<<<<<<< HEAD
-        for (slug, display_name, priority) in [
-            (AMAZON_BEDROCK_GPT_5_6_SOL_MODEL_ID, "Sol", 2),
-            (AMAZON_BEDROCK_GPT_5_6_TERRA_MODEL_ID, "Terra", 3),
-            (AMAZON_BEDROCK_GPT_5_6_LUNA_MODEL_ID, "Luna", 4),
-        ] {
-            let mut expected = gpt_5_5.clone();
-            expected.slug = slug.to_string();
-            expected.display_name = display_name.to_string();
-=======
         for (openai_slug, slug, display_name, priority) in [
             (
                 GPT_5_6_SOL_OPENAI_MODEL_ID,
@@ -248,16 +199,11 @@ mod tests {
             expected.display_name = display_name.to_string();
             expected.description = openai_model.description;
             expected.default_reasoning_level = openai_model.default_reasoning_level;
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
             expected.priority = priority;
             expected
                 .supported_reasoning_levels
                 .push(ReasoningEffortPreset {
-<<<<<<< HEAD
-                    effort: ReasoningEffort::Custom("max".to_string()),
-=======
                     effort: ReasoningEffort::Max,
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
                     description: "Maximum reasoning depth for the hardest problems".to_string(),
                 });
 

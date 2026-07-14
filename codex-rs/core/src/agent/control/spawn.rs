@@ -1,17 +1,12 @@
 use super::residency::is_v2_resident_session_source;
 use super::*;
-<<<<<<< HEAD
-=======
 use codex_extension_api::ExtensionDataInit;
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
 
 const AGENT_NAMES: &str = include_str!("../agent_names.txt");
 
 struct SpawnAgentThreadInheritance {
     environments: Option<TurnEnvironmentSnapshot>,
     exec_policy: Option<Arc<crate::exec_policy::ExecPolicyManager>>,
-<<<<<<< HEAD
-=======
 }
 
 /// Initial input delivered after a spawned agent acquires execution capacity.
@@ -23,7 +18,6 @@ struct SpawnAgentThreadInheritance {
 enum SpawnInitialInput {
     UserInput(Vec<UserInput>),
     InterAgentCommunication(InterAgentCommunication, AgentCommunicationContext),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
 }
 
 fn default_agent_nickname_list() -> Vec<&'static str> {

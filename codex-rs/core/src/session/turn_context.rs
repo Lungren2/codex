@@ -135,13 +135,8 @@ pub struct TurnContext {
     pub(crate) timezone: Option<String>,
     pub(crate) app_server_client_name: Option<String>,
     pub(crate) developer_instructions: Option<String>,
-<<<<<<< HEAD
-    pub(crate) user_instructions: Option<String>,
-    pub(crate) collaboration_mode: CollaborationMode,
-=======
     pub(crate) mode: ModeKind,
     pub(crate) collaboration_mode_developer_instructions: Option<String>,
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
     pub(crate) multi_agent_version: MultiAgentVersion,
     pub(crate) personality: Option<Personality>,
     pub(crate) approval_policy: Constrained<AskForApproval>,
@@ -300,15 +295,10 @@ impl TurnContext {
             timezone: self.timezone.clone(),
             app_server_client_name: self.app_server_client_name.clone(),
             developer_instructions: self.developer_instructions.clone(),
-<<<<<<< HEAD
-            user_instructions: self.user_instructions.clone(),
-            collaboration_mode,
-=======
             mode: self.mode,
             collaboration_mode_developer_instructions: self
                 .collaboration_mode_developer_instructions
                 .clone(),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
             multi_agent_version: self.multi_agent_version,
             personality: self.personality,
             approval_policy: self.approval_policy.clone(),
@@ -583,19 +573,11 @@ impl Session {
             timezone: Some(timezone),
             app_server_client_name: session_configuration.app_server_client_name.clone(),
             developer_instructions: session_configuration.developer_instructions.clone(),
-<<<<<<< HEAD
-            user_instructions: session_configuration
-                .loaded_agents_md
-                .as_ref()
-                .map(LoadedAgentsMd::render),
-            collaboration_mode: session_configuration.collaboration_mode.clone(),
-=======
             mode: collaboration_mode.mode,
             collaboration_mode_developer_instructions: collaboration_mode
                 .settings
                 .developer_instructions
                 .clone(),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
             multi_agent_version,
             personality: session_configuration.personality,
             approval_policy: session_configuration.approval_policy.clone(),

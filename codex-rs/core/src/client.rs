@@ -173,17 +173,11 @@ pub(crate) struct CompactConversationRequestSettings {
 
 fn reasoning_effort_for_request(effort: ReasoningEffortConfig) -> ReasoningEffortConfig {
     match effort {
-<<<<<<< HEAD
-        ReasoningEffortConfig::Ultra => ReasoningEffortConfig::Custom("max".to_string()),
-=======
         ReasoningEffortConfig::Ultra => ReasoningEffortConfig::Max,
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
         effort => effort,
     }
 }
 
-<<<<<<< HEAD
-=======
 fn session_telemetry_for_request(
     session_telemetry: &SessionTelemetry,
     request: &ResponsesApiRequest,
@@ -196,8 +190,6 @@ fn session_telemetry_for_request(
             .and_then(|reasoning| reasoning.effort.as_ref()),
     )
 }
-
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
 /// Session-scoped state shared by all [`ModelClient`] clones.
 ///
 /// This is intentionally kept minimal so `ModelClient` does not need to hold a full `Config`. Most
@@ -811,27 +803,6 @@ impl ModelClient {
         model_info: &ModelInfo,
         effort: Option<ReasoningEffortConfig>,
         summary: ReasoningSummaryConfig,
-<<<<<<< HEAD
-    ) -> Option<Reasoning> {
-        if model_info.supports_reasoning_summaries {
-            Some(Reasoning {
-                effort: effort
-                    .or_else(|| model_info.default_reasoning_level.clone())
-                    .map(reasoning_effort_for_request),
-                summary: if summary == ReasoningSummaryConfig::None {
-                    None
-                } else {
-                    Some(summary)
-                },
-                // When Responses Lite is disabled, omit context so Responses uses the default,
-                // which is currently `current_turn`.
-                context: model_info
-                    .use_responses_lite
-                    .then_some(ReasoningContext::AllTurns),
-            })
-        } else {
-            None
-=======
     ) -> Reasoning {
         Reasoning {
             effort: effort
@@ -845,7 +816,6 @@ impl ModelClient {
             context: model_info
                 .use_responses_lite
                 .then_some(ReasoningContext::AllTurns),
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
         }
     }
 

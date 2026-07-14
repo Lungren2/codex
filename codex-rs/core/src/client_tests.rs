@@ -297,15 +297,6 @@ fn ultra_reasoning_uses_max_for_requests() {
             super::reasoning_effort_for_request(ReasoningEffort::Ultra),
             super::reasoning_effort_for_request(ReasoningEffort::High),
         ),
-<<<<<<< HEAD
-        (
-            ReasoningEffort::Custom("max".to_string()),
-            ReasoningEffort::High,
-        )
-    );
-}
-
-=======
         (ReasoningEffort::Max, ReasoningEffort::High,)
     );
 }
@@ -349,7 +340,6 @@ async fn chatgpt_auth_manager(
     )
 }
 
->>>>>>> 393f64565ab46f09d99ca4d9bd973537e72a114b
 #[derive(Default)]
 struct TagCollectorVisitor {
     tags: BTreeMap<String, String>,
