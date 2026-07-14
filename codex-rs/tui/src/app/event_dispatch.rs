@@ -119,8 +119,8 @@ impl App {
                 )
                 .await
                 {
-                    Ok(ExternalAgentConfigMigrationFlowOutcome::Started(message)) => {
-                        self.chat_widget.add_info_message(message, /*hint*/ None);
+                    Ok(ExternalAgentConfigMigrationFlowOutcome::Started(lines)) => {
+                        self.chat_widget.add_plain_history_lines(lines);
                     }
                     Ok(ExternalAgentConfigMigrationFlowOutcome::NoItems) => {
                         self.chat_widget.add_info_message(
@@ -173,7 +173,11 @@ impl App {
                 if let Some(thread_id) = self.chat_widget.thread_id() {
                     self.refresh_in_memory_config_from_disk_best_effort("forking the thread")
                         .await;
-                    match app_server.fork_thread(self.config.clone(), thread_id).await {
+                    let mut fork_config = self.config.clone();
+                    fork_config.model = Some(self.chat_widget.current_model().to_string());
+                    fork_config.model_reasoning_effort =
+                        self.chat_widget.current_reasoning_effort();
+                    match app_server.fork_thread(fork_config, thread_id).await {
                         Ok(forked) => {
                             self.shutdown_current_thread(app_server).await;
                             match self
@@ -336,6 +340,79 @@ impl App {
             AppEvent::CodexOp(op) => {
                 self.chat_widget.prepare_local_op_submission(&op);
                 self.submit_active_thread_op(app_server, op).await?;
+            }
+            AppEvent::RetrySafetyBufferedTurn {
+                thread_id,
+                turn_id,
+                model,
+                mut turn,
+            } => {
+                if self.active_thread_id != Some(thread_id)
+                    || self.chat_widget.thread_id() != Some(thread_id)
+                {
+                    return Ok(AppRunControl::Continue);
+                }
+                if !self.chat_widget.can_retry_safety_buffered_turn(&turn_id) {
+                    self.app_event_tx.send(AppEvent::UpdateModel(model));
+                    self.app_event_tx.send(AppEvent::UpdateReasoningEffort(Some(
+                        ReasoningEffortConfig::Low,
+                    )));
+                    return Ok(AppRunControl::Continue);
+                }
+
+                let AppCommand::UserTurn {
+                    model: turn_model,
+                    effort,
+                    collaboration_mode,
+                    ..
+                } = &mut turn
+                else {
+                    self.chat_widget.add_error_message(
+                        "Failed to retry with a faster model: original turn is unavailable."
+                            .to_string(),
+                    );
+                    return Ok(AppRunControl::Continue);
+                };
+                *turn_model = model.clone();
+                *effort = Some(ReasoningEffortConfig::Low);
+                *collaboration_mode = collaboration_mode.as_ref().map(|mode| {
+                    mode.with_updates(
+                        Some(model),
+                        Some(Some(ReasoningEffortConfig::Low)),
+                        /*developer_instructions*/ None,
+                    )
+                });
+
+                if let Err(err) = app_server.turn_interrupt(thread_id, turn_id).await {
+                    self.chat_widget
+                        .add_error_message(format!("Failed to retry with a faster model: {err}"));
+                    return Ok(AppRunControl::Continue);
+                }
+                let rollback_response =
+                    match app_server.thread_rollback(thread_id, /*num_turns*/ 1).await {
+                        Ok(response) => response,
+                        Err(err) => {
+                            self.chat_widget.add_error_message(format!(
+                                "Failed to retry with a faster model: {err}"
+                            ));
+                            return Ok(AppRunControl::Continue);
+                        }
+                    };
+
+                self.chat_widget.prepare_safety_buffering_retry();
+                self.handle_thread_rollback_response_with_origin(
+                    thread_id,
+                    /*num_turns*/ 1,
+                    &rollback_response,
+                    super::thread_routing::ThreadRollbackOrigin::SafetyBufferingRetry,
+                )
+                .await;
+
+                if let Err(err) = self.submit_thread_op(app_server, thread_id, turn).await {
+                    self.chat_widget.fail_safety_buffering_retry();
+                    self.chat_widget
+                        .add_error_message(format!("Failed to retry with a faster model: {err}"));
+                }
             }
             AppEvent::RestoreCancelledTurn(prompt) => {
                 self.apply_cancelled_turn_edit(prompt);
@@ -796,6 +873,16 @@ impl App {
                                 snapshots,
                                 rate_limit_reset_credits.ok_or_else(|| {
                                     "account/rateLimits/read response did not include rateLimitResetCredits"
+                                    .to_string()
+                                }),
+                            );
+                        }
+                        RateLimitRefreshOrigin::ResetPicker { request_id } => {
+                            self.chat_widget.finish_rate_limit_reset_credits_refresh(
+                                request_id,
+                                snapshots,
+                                rate_limit_reset_credits.ok_or_else(|| {
+                                    "account/rateLimits/read response did not include rateLimitResetCredits"
                                         .to_string()
                                 }),
                             );
@@ -832,6 +919,13 @@ impl App {
                                 Err(err),
                             );
                         }
+                        RateLimitRefreshOrigin::ResetPicker { request_id } => {
+                            self.chat_widget.finish_rate_limit_reset_credits_refresh(
+                                request_id,
+                                Vec::new(),
+                                Err(err),
+                            );
+                        }
                     }
                 }
             },
@@ -841,38 +935,27 @@ impl App {
             }
             AppEvent::OpenRateLimitResetCredits => {
                 let request_id = self.chat_widget.show_rate_limit_reset_loading_popup();
-                self.refresh_rate_limit_reset_credits(app_server, request_id);
+                self.refresh_rate_limits(
+                    app_server,
+                    RateLimitRefreshOrigin::ResetPicker { request_id },
+                );
             }
-            AppEvent::RateLimitResetCreditsLoaded { request_id, result } => match result {
-                Ok(response) => {
-                    let rate_limit_reset_credits = response.rate_limit_reset_credits.clone();
-                    self.chat_widget.finish_rate_limit_reset_credits_refresh(
-                        request_id,
-                        app_server_rate_limit_snapshots(response),
-                        rate_limit_reset_credits.ok_or_else(|| {
-                            "account/rateLimits/read response did not include rateLimitResetCredits"
-                                .to_string()
-                        }),
-                    );
-                }
-                Err(err) => {
-                    tracing::warn!(
-                        "account/rateLimits/read failed during reset-credit refresh: {err}"
-                    );
-                    self.chat_widget.finish_rate_limit_reset_credits_refresh(
-                        request_id,
-                        Vec::new(),
-                        Err(err),
-                    );
-                }
-            },
-            AppEvent::ConsumeRateLimitResetCredit { idempotency_key } => {
+            AppEvent::ConsumeRateLimitResetCredit {
+                idempotency_key,
+                credit_id,
+            } => {
                 let request_id = self.chat_widget.show_rate_limit_reset_consuming_popup();
-                self.consume_rate_limit_reset_credit(app_server, request_id, idempotency_key);
+                self.consume_rate_limit_reset_credit(
+                    app_server,
+                    request_id,
+                    idempotency_key,
+                    credit_id,
+                );
             }
             AppEvent::RateLimitResetCreditConsumed {
                 request_id,
                 idempotency_key,
+                credit_id,
                 result,
             } => {
                 if let Err(err) = &result {
@@ -883,6 +966,7 @@ impl App {
                 if self.chat_widget.finish_rate_limit_reset_consume(
                     request_id,
                     idempotency_key,
+                    credit_id,
                     result,
                 ) {
                     self.refresh_rate_limits(
@@ -945,6 +1029,42 @@ impl App {
             }
             AppEvent::OpenReasoningPopup { model } => {
                 self.chat_widget.open_reasoning_popup(model);
+            }
+            AppEvent::OpenAdvancedReasoningPopup { model } => {
+                self.chat_widget.open_advanced_reasoning_popup(model);
+            }
+            AppEvent::ApplyAdvancedReasoning { model, effort } => {
+                let default_effort =
+                    self.on_apply_advanced_reasoning(model.as_str(), effort.clone());
+                if let Some(mut params) =
+                    self.active_thread_model_setting_update_params(model.clone())
+                {
+                    params.effort = Some(effort.clone());
+                    self.send_thread_settings_update(app_server, params).await;
+                }
+                self.sync_active_thread_service_tier_to_cached_session()
+                    .await;
+
+                if let Some(default_effort) = default_effort.as_ref()
+                    && let Err(err) = crate::config_update::write_config_batch(
+                        app_server.request_handle(),
+                        crate::config_update::build_model_selection_edits(
+                            model.as_str(),
+                            Some(default_effort),
+                        ),
+                    )
+                    .await
+                {
+                    let error = format_config_error(&err);
+                    tracing::error!(error = %error, "failed to persist conversation model");
+                    self.chat_widget
+                        .add_error_message(format!("Failed to save default model: {error}"));
+                } else {
+                    self.chat_widget.add_info_message(
+                        format!("Model changed to {model} {effort} for this conversation"),
+                        /*hint*/ None,
+                    );
+                }
             }
             AppEvent::OpenPlanReasoningScopePrompt { model, effort } => {
                 self.chat_widget
@@ -1723,8 +1843,7 @@ impl App {
                 self.chat_widget.set_rate_limit_switch_prompt_hidden(hidden);
             }
             AppEvent::UpdatePlanModeReasoningEffort(effort) => {
-                self.config.plan_mode_reasoning_effort = effort.clone();
-                self.chat_widget.set_plan_mode_reasoning_effort(effort);
+                self.on_update_plan_mode_reasoning_effort(effort);
                 self.sync_active_thread_plan_mode_reasoning_setting(app_server)
                     .await;
             }

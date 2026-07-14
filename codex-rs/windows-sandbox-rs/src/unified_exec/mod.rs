@@ -10,6 +10,7 @@
 mod backends;
 
 use anyhow::Result;
+use anyhow::bail;
 use codex_protocol::config_types::WindowsSandboxLevel;
 use codex_protocol::models::PermissionProfile;
 use codex_utils_absolute_path::AbsolutePathBuf;
@@ -31,6 +32,7 @@ pub struct WindowsSandboxSessionRequest<'a> {
     pub env_map: HashMap<String, String>,
     pub windows_sandbox_level: WindowsSandboxLevel,
     pub proxy_enforced: bool,
+    pub proxy_settings_mode: crate::WindowsSandboxProxySettingsMode,
     pub timeout_ms: Option<u64>,
     pub read_roots_override: Option<&'a [PathBuf]>,
     pub read_roots_include_platform_defaults: bool,
@@ -46,9 +48,13 @@ pub async fn spawn_windows_sandbox_session_for_level(
     request: WindowsSandboxSessionRequest<'_>,
 ) -> Result<SpawnedProcess> {
     if request.proxy_enforced
-        || matches!(request.windows_sandbox_level, WindowsSandboxLevel::Elevated)
+        && !matches!(request.windows_sandbox_level, WindowsSandboxLevel::Elevated)
     {
-        spawn_windows_sandbox_session_elevated_for_permission_profile(
+        bail!("network proxy enforcement requires the elevated Windows sandbox backend");
+    }
+
+    if matches!(request.windows_sandbox_level, WindowsSandboxLevel::Elevated) {
+        backends::elevated::spawn_windows_sandbox_session_elevated_for_permission_profile(
             request.permission_profile,
             request.workspace_roots,
             request.codex_home,
@@ -56,6 +62,7 @@ pub async fn spawn_windows_sandbox_session_for_level(
             request.cwd,
             request.env_map,
             request.proxy_enforced,
+            request.proxy_settings_mode,
             request.timeout_ms,
             request.read_roots_override,
             request.read_roots_include_platform_defaults,
@@ -145,6 +152,7 @@ pub async fn spawn_windows_sandbox_session_elevated_for_permission_profile(
         cwd,
         env_map,
         proxy_enforced,
+        crate::WindowsSandboxProxySettingsMode::Reconcile,
         timeout_ms,
         read_roots_override,
         read_roots_include_platform_defaults,
