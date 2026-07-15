@@ -44,6 +44,7 @@ use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::InternalSessionSource;
 use codex_protocol::protocol::SessionSource;
 use codex_protocol::protocol::SubAgentSource;
+use codex_rollout_trace::BaseInstructionsProvenance;
 use codex_rollout_trace::CompactionTraceContext;
 use codex_rollout_trace::ExecutionStatus;
 use codex_rollout_trace::InferenceTraceAttempt;
@@ -273,6 +274,83 @@ fn test_model_info() -> ModelInfo {
         "experimental_supported_tools": []
     }))
     .expect("deserialize test model info")
+}
+
+#[tokio::test]
+async fn responses_lite_request_retains_pre_transform_prompt_debug_data() -> anyhow::Result<()> {
+    let retained_instructions = "retained session instructions";
+    let client = test_model_client(SessionSource::Cli).with_prompt_debug_metadata(
+        BaseInstructionsProvenance::RetainedSession,
+        Some(retained_instructions.to_string()),
+    );
+    let prompt = Prompt {
+        input: vec![ResponseItem::Message {
+            id: None,
+            role: "user".to_string(),
+            content: vec![ContentItem::InputText {
+                text: "hello".to_string(),
+            }],
+            phase: None,
+            internal_chat_message_metadata_passthrough: None,
+        }],
+        base_instructions: BaseInstructions {
+            text: retained_instructions.to_string(),
+        },
+        ..Default::default()
+    };
+    let mut model_info = test_model_info();
+    model_info.use_responses_lite = true;
+    let provider = client.state.provider.api_provider().await?;
+    let responses_metadata = test_responses_metadata_for_client(
+        &client,
+        /*turn_id*/ None,
+        format!("{}:0", client.state.thread_id),
+        /*parent_thread_id*/ None,
+        TestCodexResponsesRequestKind::Turn,
+    );
+
+    let super::BuiltResponsesRequest {
+        request,
+        prompt_assembly,
+    } = client.build_responses_request(
+        &provider,
+        &prompt,
+        &model_info,
+        /*effort*/ None,
+        codex_protocol::config_types::ReasoningSummary::None,
+        /*service_tier*/ None,
+        &responses_metadata,
+    )?;
+
+    assert_eq!(
+        prompt_assembly,
+        codex_rollout_trace::PromptAssemblyTracePayload {
+            model: "gpt-test".to_string(),
+            base_instructions: retained_instructions.to_string(),
+            base_instructions_provenance: BaseInstructionsProvenance::RetainedSession,
+            retained_session_instructions: Some(retained_instructions.to_string()),
+            input: prompt.input,
+            tools: Vec::new(),
+            responses_lite: true,
+            responses_lite_prefix_order: vec!["tools".to_string(), "base_instructions".to_string(),],
+        }
+    );
+    assert_eq!(request.instructions, "");
+    assert_eq!(request.tools, None);
+    assert_eq!(
+        request
+            .input
+            .iter()
+            .map(|item| match item {
+                ResponseItem::AdditionalTools { role, .. } | ResponseItem::Message { role, .. } =>
+                    Some(role.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>(),
+        vec![Some("developer"), Some("developer"), Some("user")]
+    );
+
+    Ok(())
 }
 
 fn test_session_telemetry() -> SessionTelemetry {

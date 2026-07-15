@@ -176,6 +176,12 @@ pub struct InferenceCall {
     /// Runtime tool calls whose model-visible call item came from this response.
     pub tool_call_ids_started_by_response: Vec<ToolCallId>,
     pub usage: Option<TokenUsage>,
+    /// Pre-transformation prompt assembly captured before Responses Lite moves fields.
+    #[serde(default)]
+    pub raw_prompt_assembly_payload_id: Option<RawPayloadId>,
+    /// Exact transport request when request replay uses a fuller logical snapshot.
+    #[serde(default)]
+    pub raw_wire_request_payload_id: Option<RawPayloadId>,
     pub raw_request_payload_id: RawPayloadId,
     /// Full upstream response payload. `None` while running or after pre-stream failures.
     pub raw_response_payload_id: Option<RawPayloadId>,

@@ -172,9 +172,50 @@ impl InferenceTraceAttempt {
     /// logical request when the transport omits already-sent input, such as
     /// websocket reuse after an untraced warmup response.
     pub fn record_started(&self, request: &impl Serialize) {
+        self.record_started_with_prompt_assembly_and_wire(
+            request,
+            Option::<&()>::None,
+            Option::<&()>::None,
+        );
+    }
+
+    /// Records the exact provider request and the prompt assembly before transport transforms.
+    pub fn record_started_with_prompt_assembly<T: Serialize>(
+        &self,
+        request: &impl Serialize,
+        prompt_assembly: Option<&T>,
+    ) {
+        self.record_started_with_prompt_assembly_and_wire(
+            request,
+            prompt_assembly,
+            Option::<&()>::None,
+        );
+    }
+
+    /// Records the logical request, its prompt assembly, and an exact differing wire request.
+    pub fn record_started_with_prompt_assembly_and_wire<T: Serialize, U: Serialize>(
+        &self,
+        request: &impl Serialize,
+        prompt_assembly: Option<&T>,
+        wire_request: Option<&U>,
+    ) {
         let InferenceTraceAttemptState::Enabled(attempt) = &self.state else {
             return;
         };
+        let prompt_assembly_payload = prompt_assembly.and_then(|prompt_assembly| {
+            write_json_payload_best_effort(
+                &attempt.context.writer,
+                RawPayloadKind::PromptAssembly,
+                prompt_assembly,
+            )
+        });
+        let wire_request_payload = wire_request.and_then(|wire_request| {
+            write_json_payload_best_effort(
+                &attempt.context.writer,
+                RawPayloadKind::WireRequest,
+                wire_request,
+            )
+        });
         let Some(request_payload) = write_json_payload_best_effort(
             &attempt.context.writer,
             RawPayloadKind::InferenceRequest,
@@ -191,6 +232,8 @@ impl InferenceTraceAttempt {
                 codex_turn_id: attempt.context.codex_turn_id.clone(),
                 model: attempt.context.model.clone(),
                 provider_name: attempt.context.provider_name.clone(),
+                prompt_assembly_payload,
+                wire_request_payload,
                 request_payload,
             },
         );
@@ -467,14 +510,28 @@ mod tests {
         );
 
         let attempt = context.start_attempt();
-        attempt.record_started(&json!({
+        let prompt_assembly = json!({
             "model": "gpt-test",
-            "input": [{
-                "type": "message",
-                "role": "user",
-                "content": [{"type": "input_text", "text": "hello"}]
-            }],
-        }));
+            "base_instructions": "base",
+            "input": [],
+            "tools": []
+        });
+        let wire_request = json!({
+            "type": "response.create",
+            "input": [{"type": "message", "role": "user", "content": []}]
+        });
+        attempt.record_started_with_prompt_assembly_and_wire(
+            &json!({
+                "model": "gpt-test",
+                "input": [{
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "hello"}]
+                }],
+            }),
+            Some(&prompt_assembly),
+            Some(&wire_request),
+        );
         attempt.record_completed("resp-1", Some("req-1"), &None, &[]);
 
         let rollout = replay_bundle(temp.path())?;
@@ -489,7 +546,9 @@ mod tests {
         assert_eq!(inference.codex_turn_id, "turn-1");
         assert_eq!(inference.execution.status, ExecutionStatus::Completed);
         assert_eq!(inference.upstream_request_id, Some("req-1".to_string()));
-        assert_eq!(rollout.raw_payloads.len(), 2);
+        assert!(inference.raw_prompt_assembly_payload_id.is_some());
+        assert!(inference.raw_wire_request_payload_id.is_some());
+        assert_eq!(rollout.raw_payloads.len(), 4);
 
         Ok(())
     }

@@ -28,6 +28,10 @@ pub struct RawPayloadRef {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type", content = "value")]
 pub enum RawPayloadKind {
+    /// Prompt components before transport-specific transformations such as Responses Lite.
+    PromptAssembly,
+    /// Exact transport request when it differs from the logical model-visible request.
+    WireRequest,
     InferenceRequest,
     /// Full upstream inference response or non-delta response stream summary.
     InferenceResponse,

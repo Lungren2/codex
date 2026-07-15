@@ -98,6 +98,10 @@ pub enum RawTraceEventPayload {
         codex_turn_id: CodexTurnId,
         model: String,
         provider_name: String,
+        #[serde(default)]
+        prompt_assembly_payload: Option<RawPayloadRef>,
+        #[serde(default)]
+        wire_request_payload: Option<RawPayloadRef>,
         request_payload: RawPayloadRef,
     },
     InferenceCompleted {
@@ -251,9 +255,16 @@ impl RawTraceEventPayload {
                 metadata_payload, ..
             } => metadata_payload.iter().collect(),
             RawTraceEventPayload::InferenceStarted {
-                request_payload, ..
-            }
-            | RawTraceEventPayload::InferenceCompleted {
+                prompt_assembly_payload,
+                wire_request_payload,
+                request_payload,
+                ..
+            } => prompt_assembly_payload
+                .iter()
+                .chain(wire_request_payload.iter())
+                .chain(std::iter::once(request_payload))
+                .collect(),
+            RawTraceEventPayload::InferenceCompleted {
                 response_payload: request_payload,
                 ..
             }

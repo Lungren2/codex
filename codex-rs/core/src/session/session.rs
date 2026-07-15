@@ -19,6 +19,7 @@ use codex_protocol::protocol::MultiAgentVersion;
 use codex_protocol::protocol::ThreadHistoryMode;
 use codex_protocol::protocol::ThreadSource;
 use codex_protocol::protocol::TurnEnvironmentSelections;
+use codex_rollout_trace::BaseInstructionsProvenance;
 use std::sync::OnceLock;
 use tokio::sync::Semaphore;
 
@@ -64,6 +65,8 @@ pub(crate) struct SessionConfiguration {
 
     /// Base instructions for the session.
     pub(super) base_instructions: String,
+    pub(super) base_instructions_provenance: BaseInstructionsProvenance,
+    pub(super) retained_session_instructions: Option<String>,
 
     /// Compact prompt override.
     pub(super) compact_prompt: Option<String>,
@@ -1119,6 +1122,10 @@ impl Session {
                         &session_configuration.session_source,
                         session_configuration.parent_thread_id,
                     ),
+                )
+                .with_prompt_debug_metadata(
+                    session_configuration.base_instructions_provenance,
+                    session_configuration.retained_session_instructions.clone(),
                 ),
                 code_mode_service: crate::tools::code_mode::CodeModeService::new(Arc::clone(
                     &code_mode_session_provider,

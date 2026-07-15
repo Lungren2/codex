@@ -132,6 +132,8 @@ pub(crate) fn append_inference_start_for_thread(
         codex_turn_id: codex_turn_id.to_string(),
         model: "gpt-test".to_string(),
         provider_name: "test-provider".to_string(),
+        prompt_assembly_payload: None,
+        wire_request_payload: None,
         request_payload,
     })?;
     Ok(())

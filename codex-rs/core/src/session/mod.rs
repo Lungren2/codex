@@ -140,6 +140,7 @@ use codex_protocol::request_user_input::RequestUserInputResponse;
 use codex_rmcp_client::ElicitationResponse;
 use codex_rollout::state_db;
 use codex_rollout_trace::AgentResultTracePayload;
+use codex_rollout_trace::BaseInstructionsProvenance;
 use codex_rollout_trace::ThreadStartedTraceMetadata;
 use codex_rollout_trace::ThreadTraceContext;
 use codex_sandboxing::policy_transforms::intersect_permission_profiles;
@@ -611,11 +612,26 @@ impl Codex {
         config
             .validate_multi_agent_v2_config()
             .map_err(|err| CodexErr::InvalidRequest(err.to_string()))?;
-        let base_instructions = config
-            .base_instructions
-            .clone()
-            .or_else(|| conversation_history.get_base_instructions().map(|s| s.text))
-            .unwrap_or_else(|| model_info.get_model_instructions(config.personality));
+        let retained_session_instructions = conversation_history
+            .get_base_instructions()
+            .map(|instructions| instructions.text);
+        let (base_instructions, base_instructions_provenance) =
+            if let Some(base_instructions) = config.base_instructions.clone() {
+                (
+                    base_instructions,
+                    BaseInstructionsProvenance::ConfigOverride,
+                )
+            } else if let Some(base_instructions) = retained_session_instructions.clone() {
+                (
+                    base_instructions,
+                    BaseInstructionsProvenance::RetainedSession,
+                )
+            } else {
+                (
+                    model_info.get_model_instructions(config.personality),
+                    BaseInstructionsProvenance::ModelCatalog,
+                )
+            };
 
         // Dynamic tools are defined at thread start and persisted in rollout session metadata.
         let dynamic_tools = if dynamic_tools.is_empty() {
@@ -649,6 +665,8 @@ impl Codex {
             developer_instructions: config.developer_instructions.clone(),
             personality: config.personality,
             base_instructions,
+            base_instructions_provenance,
+            retained_session_instructions,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
             approvals_reviewer: config.approvals_reviewer,

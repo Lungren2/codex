@@ -1,6 +1,7 @@
 use clap::Args;
 use clap::CommandFactory;
 use clap::Parser;
+use clap::ValueEnum;
 use clap_complete::Shell;
 use clap_complete::generate;
 use codex_app_server_daemon::BootstrapOptions as AppServerBootstrapOptions;
@@ -25,6 +26,7 @@ use codex_exec::ReviewArgs;
 use codex_execpolicy::ExecPolicyCheckCommand;
 use codex_responses_api_proxy::Args as ResponsesApiProxyArgs;
 use codex_rollout_trace::REDUCED_STATE_FILE_NAME;
+use codex_rollout_trace::load_prompt_request_debug_view;
 use codex_rollout_trace::replay_bundle;
 use codex_state::StateRuntime;
 use codex_state::memories_db_path;
@@ -235,6 +237,9 @@ enum DebugSubcommand {
     /// Render the model-visible prompt input list as JSON.
     PromptInput(DebugPromptInputCommand),
 
+    /// Inspect an exact provider request captured in a rollout trace.
+    PromptRequest(DebugPromptRequestCommand),
+
     /// Replay a rollout trace bundle and write reduced state JSON.
     #[clap(hide = true)]
     TraceReduce(DebugTraceReduceCommand),
@@ -271,6 +276,28 @@ struct DebugPromptInputCommand {
     /// Optional image(s) to attach to the user prompt.
     #[arg(long = "image", short = 'i', value_name = "FILE", value_delimiter = ',', num_args = 1..)]
     images: Vec<PathBuf>,
+}
+
+#[derive(Debug, Parser)]
+struct DebugPromptRequestCommand {
+    /// Rollout trace bundle containing the request payload.
+    #[arg(value_name = "TRACE_BUNDLE")]
+    trace_bundle: PathBuf,
+
+    /// Specific inference call id. Defaults to the latest request in the bundle.
+    #[arg(long, value_name = "INFERENCE_CALL_ID")]
+    inference_call: Option<String>,
+
+    /// Output projection for diagnosis or deterministic comparison.
+    #[arg(long, value_enum, default_value_t = DebugPromptRequestFormat::Readable)]
+    format: DebugPromptRequestFormat,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum DebugPromptRequestFormat {
+    Readable,
+    CanonicalJson,
+    ObservationJson,
 }
 
 #[derive(Debug, Parser)]
@@ -1518,6 +1545,14 @@ async fn cli_main(
                 )
                 .await?;
             }
+            DebugSubcommand::PromptRequest(cmd) => {
+                reject_remote_mode_for_subcommand(
+                    root_remote.as_deref(),
+                    root_remote_auth_token_env.as_deref(),
+                    "debug prompt-request",
+                )?;
+                run_debug_prompt_request_command(cmd)?;
+            }
             DebugSubcommand::TraceReduce(cmd) => {
                 reject_remote_mode_for_subcommand(
                     root_remote.as_deref(),
@@ -1905,6 +1940,18 @@ async fn run_debug_trace_reduce_command(cmd: DebugTraceReduceCommand) -> anyhow:
     tokio::fs::write(&output, reduced_json).await?;
     println!("{}", output.display());
 
+    Ok(())
+}
+
+fn run_debug_prompt_request_command(cmd: DebugPromptRequestCommand) -> anyhow::Result<()> {
+    let view = load_prompt_request_debug_view(&cmd.trace_bundle, cmd.inference_call.as_deref())?;
+    match cmd.format {
+        DebugPromptRequestFormat::Readable => println!("{}", view.render_readable()),
+        DebugPromptRequestFormat::CanonicalJson => println!("{}", view.canonical_json()?),
+        DebugPromptRequestFormat::ObservationJson => {
+            println!("{}", serde_json::to_string_pretty(&view)?)
+        }
+    }
     Ok(())
 }
 
@@ -2806,6 +2853,35 @@ mod tests {
             cmd.images,
             vec![PathBuf::from("/tmp/a.png"), PathBuf::from("/tmp/b.png")]
         );
+    }
+
+    #[test]
+    fn debug_prompt_request_parses_trace_and_format() {
+        let cli = MultitoolCli::try_parse_from([
+            "codex",
+            "debug",
+            "prompt-request",
+            "/tmp/trace",
+            "--inference-call",
+            "inference-7",
+            "--format",
+            "canonical-json",
+        ])
+        .expect("parse");
+
+        let Some(Subcommand::Debug(DebugCommand {
+            subcommand: DebugSubcommand::PromptRequest(cmd),
+        })) = cli.subcommand
+        else {
+            panic!("expected debug prompt-request subcommand");
+        };
+
+        assert_eq!(cmd.trace_bundle, PathBuf::from("/tmp/trace"));
+        assert_eq!(cmd.inference_call.as_deref(), Some("inference-7"));
+        assert!(matches!(
+            cmd.format,
+            DebugPromptRequestFormat::CanonicalJson
+        ));
     }
 
     #[test]

@@ -25,6 +25,8 @@ pub(super) struct StartedInferenceCall {
     pub(super) codex_turn_id: String,
     pub(super) model: String,
     pub(super) provider_name: String,
+    pub(super) prompt_assembly_payload: Option<RawPayloadRef>,
+    pub(super) wire_request_payload: Option<RawPayloadRef>,
     pub(super) request_payload: RawPayloadRef,
 }
 
@@ -98,6 +100,12 @@ impl TraceReducer {
                 response_item_ids: Vec::new(),
                 tool_call_ids_started_by_response: Vec::new(),
                 usage: None,
+                raw_prompt_assembly_payload_id: started
+                    .prompt_assembly_payload
+                    .map(|payload| payload.raw_payload_id),
+                raw_wire_request_payload_id: started
+                    .wire_request_payload
+                    .map(|payload| payload.raw_payload_id),
                 raw_request_payload_id: started.request_payload.raw_payload_id,
                 raw_response_payload_id: None,
             },

@@ -84,9 +84,11 @@ use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use codex_protocol::protocol::InternalSessionSource;
 use codex_protocol::protocol::SessionSource;
 use codex_protocol::protocol::W3cTraceContext;
+use codex_rollout_trace::BaseInstructionsProvenance;
 use codex_rollout_trace::CompactionTraceContext;
 use codex_rollout_trace::InferenceTraceAttempt;
 use codex_rollout_trace::InferenceTraceContext;
+use codex_rollout_trace::PromptAssemblyTracePayload;
 use codex_tools::create_tools_json_for_responses_api;
 use eventsource_stream::Event;
 use eventsource_stream::EventStreamError;
@@ -252,7 +254,14 @@ pub struct ModelClient {
     state: Arc<ModelClientState>,
     agent_identity_policy: AgentIdentityAuthPolicy,
     prompt_cache_key_override: Option<String>,
+    base_instructions_provenance: BaseInstructionsProvenance,
+    retained_session_instructions: Option<String>,
     http_client_factory: HttpClientFactory,
+}
+
+struct BuiltResponsesRequest {
+    request: ResponsesApiRequest,
+    prompt_assembly: PromptAssemblyTracePayload,
 }
 
 /// A turn-scoped streaming session created from a [`ModelClient`].
@@ -453,6 +462,8 @@ impl ModelClient {
             }),
             agent_identity_policy,
             prompt_cache_key_override: None,
+            base_instructions_provenance: BaseInstructionsProvenance::ModelCatalog,
+            retained_session_instructions: None,
             http_client_factory,
         }
     }
@@ -462,6 +473,16 @@ impl ModelClient {
         prompt_cache_key_override: Option<String>,
     ) -> Self {
         self.prompt_cache_key_override = prompt_cache_key_override;
+        self
+    }
+
+    pub(crate) fn with_prompt_debug_metadata(
+        mut self,
+        base_instructions_provenance: BaseInstructionsProvenance,
+        retained_session_instructions: Option<String>,
+    ) -> Self {
+        self.base_instructions_provenance = base_instructions_provenance;
+        self.retained_session_instructions = retained_session_instructions;
         self
     }
 
@@ -560,7 +581,7 @@ impl ModelClient {
             RequestRouteTelemetry::for_endpoint(RESPONSES_COMPACT_ENDPOINT),
             self.state.auth_env_telemetry.clone(),
         );
-        let request = self.build_responses_request(
+        let BuiltResponsesRequest { request, .. } = self.build_responses_request(
             &client_setup.api_provider,
             prompt,
             model_info,
@@ -829,15 +850,31 @@ impl ModelClient {
         summary: ReasoningSummaryConfig,
         service_tier: Option<String>,
         responses_metadata: &CodexResponsesMetadata,
-    ) -> Result<ResponsesApiRequest> {
+    ) -> Result<BuiltResponsesRequest> {
+        let mut pre_transform_input =
+            prompt.get_formatted_input_for_request(/*use_responses_lite*/ false);
         let mut input = prompt.get_formatted_input_for_request(model_info.use_responses_lite);
         let is_openai = self.state.provider.info().is_openai();
         if !is_openai {
+            pre_transform_input
+                .iter_mut()
+                .for_each(ResponseItem::clear_internal_chat_message_metadata_passthrough);
             input
                 .iter_mut()
                 .for_each(ResponseItem::clear_internal_chat_message_metadata_passthrough);
         }
         let tools = create_tools_json_for_responses_api(&prompt.tools)?;
+        let prompt_assembly = PromptAssemblyTracePayload {
+            model: model_info.slug.clone(),
+            base_instructions: prompt.base_instructions.text.clone(),
+            base_instructions_provenance: self.base_instructions_provenance,
+            retained_session_instructions: self.retained_session_instructions.clone(),
+            input: pre_transform_input,
+            tools: tools.clone(),
+            responses_lite: model_info.use_responses_lite,
+            responses_lite_prefix_order: if model_info
+                .use_responses_lite { vec!["tools".to_string(), "base_instructions".to_string()] } else { Default::default() },
+        };
         let (instructions, tools) = if model_info.use_responses_lite {
             let mut prefix = vec![ResponseItem::AdditionalTools {
                 id: None,
@@ -903,7 +940,10 @@ impl ModelClient {
             text,
             client_metadata: Some(responses_metadata.client_metadata()),
         };
-        Ok(request)
+        Ok(BuiltResponsesRequest {
+            request,
+            prompt_assembly,
+        })
     }
 
     fn prepare_response_items_for_request(&self, input: &mut [ResponseItem], store: bool) {
@@ -1433,7 +1473,10 @@ impl ModelClientSession {
                 )
                 .await;
 
-            let mut request = self.client.build_responses_request(
+            let BuiltResponsesRequest {
+                mut request,
+                prompt_assembly,
+            } = self.client.build_responses_request(
                 &client_setup.api_provider,
                 prompt,
                 model_info,
@@ -1449,7 +1492,8 @@ impl ModelClientSession {
                 session_telemetry_for_request(session_telemetry, &request);
             let inference_trace_attempt = inference_trace.start_attempt();
             inference_trace_attempt.add_request_headers(&mut options.extra_headers);
-            inference_trace_attempt.record_started(&request);
+            inference_trace_attempt
+                .record_started_with_prompt_assembly(&request, Some(&prompt_assembly));
             let client = ApiResponsesClient::new(
                 transport,
                 client_setup.api_provider,
@@ -1546,7 +1590,10 @@ impl ModelClientSession {
                 client_setup.agent_identity_telemetry.clone(),
                 pending_retry,
             );
-            let request = self.client.build_responses_request(
+            let BuiltResponsesRequest {
+                request,
+                prompt_assembly,
+            } = self.client.build_responses_request(
                 &client_setup.api_provider,
                 prompt,
                 model_info,
@@ -1632,9 +1679,14 @@ impl ModelClientSession {
                 // The transport can reuse an untraced warmup response id and omit the
                 // already-sent input, but rollout replay needs the logical model-visible
                 // request rather than the compressed websocket delta.
-                inference_trace_attempt.record_started(&request);
+                inference_trace_attempt.record_started_with_prompt_assembly_and_wire(
+                    &request,
+                    Some(&prompt_assembly),
+                    Some(&ws_request),
+                );
             } else {
-                inference_trace_attempt.record_started(&ws_request);
+                inference_trace_attempt
+                    .record_started_with_prompt_assembly(&ws_request, Some(&prompt_assembly));
             }
             self.websocket_session.last_request = Some(request);
             self.websocket_session.last_response_from_untraced_warmup = warmup;
