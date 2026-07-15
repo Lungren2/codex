@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 8 · Quality and landing</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-7-mission-verification.html">← Mission verification</a
+      ><a href="index.html">Overview</a>
+    </nav>
+    <h1>Phase 8 · Code quality and optional landing gate</h1>
+    <p class="lede">
+      Only after the journey works, inspect correctness, integration, maintainability, and code
+      shape. Deterministic repository checks remain a separate, explicit landing request; usability
+      never implies mergeability.
+    </p>
+
+    <h2>Modes in this phase</h2>
+    <table>
+      <tbody>
+        <tr>
+          <th><code>code_quality_review</code></th>
+          <td>Independent structured judgment over final code and mission evidence.</td>
+        </tr>
+        <tr>
+          <th><code>merge_gate</code></th>
+          <td>Host-run repository commands only when <code>prepare_for_landing</code> is true.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Extend <code>review/start</code> with optional model, effort, service tier, output schema,
+        and bounded additional context.
+      </li>
+      <li>
+        Review the final phase-relative Git diff plus proven mission evidence; do not trust stale
+        implementation summaries.
+      </li>
+      <li>
+        Classify findings as mission regression or quality issue. Any behavioral repair returns to
+        Phase 7 journey verification.
+      </li>
+      <li>
+        Resolve landing commands from repository policy, run them in the host command executor, and
+        persist exact output and exit status.
+      </li>
+      <li>
+        Produce a final narrative: mission interpretation, workers/routes, decisions and rejected
+        alternatives, files and reasons, journey evidence, quality findings, landing evidence, and
+        remaining concerns.
+      </li>
+    </ol>
+
+    <h2>Exact existing surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/app-server-protocol/src/protocol/v2/review.rs"
+          ><code>codex-rs/app-server-protocol/src/protocol/v2/review.rs:17</code></a
+        >
+        — review request controls.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/session/review.rs"
+          ><code>codex-rs/core/src/session/review.rs:111</code></a
+        >
+        — restricted quality-review worker.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/app-server/src/request_processors/turn_processor.rs"
+          ><code>codex-rs/app-server/src/request_processors/turn_processor.rs:1235</code></a
+        >
+        — detached review construction.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/app-server-protocol/src/protocol/v2/command_exec.rs"
+          ><code>codex-rs/app-server-protocol/src/protocol/v2/command_exec.rs:21</code></a
+        >
+        — host-run landing commands.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs"
+          ><code>codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs:231</code></a
+        >
+        — persisted turn evidence.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      An end-to-end workflow cannot enter quality review without accepted journey evidence. A
+      behavioral repair routes back through journey verification. Landing commands remain absent by
+      default and run exactly once when requested, with host-derived output in the final envelope.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> no automatic merge, deployment, visual timeline, coverage mandate, or
+      learned acceptance policy.
+    </p>
+  </body>
+</html>

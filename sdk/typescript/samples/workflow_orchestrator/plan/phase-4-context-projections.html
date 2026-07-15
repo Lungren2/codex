@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 4 · Context projections</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-3-typescript-runtime.html">← TypeScript runtime</a
+      ><a href="index.html">Overview</a
+      ><a href="phase-5-capability-routing.html">Next: Capability routing →</a>
+    </nav>
+    <h1>Phase 4 · Bounded context projections</h1>
+    <p class="lede">
+      Make context transfer explicit. A workflow names typed artifacts and history continuity; the
+      host validates provenance, audience, and hard size caps before inference.
+    </p>
+
+    <h2>Projection</h2>
+    <pre><code>context: {
+  history: "fresh" | "all" | { last_n: number },
+  fragments: [{ id, kind, audience, provenance, content, max_tokens }]
+}</code></pre>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Add <code>codex-rs/core/src/context/workflow_projection.rs</code> implementing
+        <code>ContextualUserFragment</code>.
+      </li>
+      <li>
+        Permit only registered fragment kinds: mission brief, typed stage output, repository
+        evidence, decision amendment, and review issue.
+      </li>
+      <li>Enforce per-fragment and total projection caps before constructing the child turn.</li>
+      <li>
+        Persist a manifest of fragment IDs, hashes, provenance, audience, and applied truncation;
+        keep contents out of non-model evidence.
+      </li>
+      <li>
+        Preserve continuity independently from validation mode: inline, all-history, last-N, and
+        fresh are explicit workflow choices.
+      </li>
+    </ol>
+
+    <h2>Exact existing surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/protocol/src/protocol.rs"
+          ><code>codex-rs/protocol/src/protocol.rs:509</code></a
+        >
+        — additional-context entries.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/context/contextual_user_message.rs"
+          ><code>codex-rs/core/src/context/contextual_user_message.rs:24</code></a
+        >
+        — fragment registration.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/agent/control/spawn.rs"
+          ><code>codex-rs/core/src/agent/control/spawn.rs:499</code></a
+        >
+        — full/last-N history.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/app-server-protocol/src/protocol/v2/turn.rs"
+          ><code>codex-rs/app-server-protocol/src/protocol/v2/turn.rs:71</code></a
+        >
+        — turn context input.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Integration tests reject unregistered, oversized, wrong-audience, and unprovenanced fragments.
+      A fresh worker receives only its projection; a continuing worker retains selected history
+      without transcript duplication. Every injected item stays below the repository's 10K-token
+      ceiling.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> context only. No routing, intent semantics, automatic summarization, or
+      transcript rewrite.
+    </p>
+  </body>
+</html>

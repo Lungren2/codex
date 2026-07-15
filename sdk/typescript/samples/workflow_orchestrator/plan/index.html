@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent-authored TypeScript workflow runtime</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="phase-1-worker-api.html">1 · Worker API</a>
+      <a href="phase-2-stage-kernel.html">2 · Stage kernel</a>
+      <a href="phase-3-typescript-runtime.html">3 · TypeScript runtime</a>
+      <a href="phase-4-context-projections.html">4 · Context</a>
+      <a href="phase-5-capability-routing.html">5 · Routing</a>
+      <a href="phase-6-intent-resolution.html">6 · Intent</a>
+      <a href="phase-7-mission-verification.html">7 · Mission verification</a>
+      <a href="phase-8-quality-landing.html">8 · Quality and landing</a>
+    </nav>
+
+    <h1>Agent-authored TypeScript workflow runtime</h1>
+    <p class="lede">
+      Build one product path in eight narrow increments: an agent writes a bounded TypeScript
+      program; Codex compiles and executes it; the program invokes workers under host-owned context,
+      routing, authority, and evidence.
+    </p>
+
+    <h2>Authority</h2>
+    <pre><code>TypeScript workflow owns control flow
+host owns compilation, authority, limits, routing, and facts
+worker owns bounded judgment and implementation
+StageResult records every attempted transition</code></pre>
+
+    <h2>Phases</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Phase</th>
+          <th>Single outcome</th>
+          <th>Exit gate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="phase-1-worker-api.html">1</a></td>
+          <td>A JavaScript code cell invokes one workflow-native worker.</td>
+          <td>Typed terminal result and cancellation work end to end.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-2-stage-kernel.html">2</a></td>
+          <td>Every attempted invocation leaves one durable result envelope.</td>
+          <td>Bounds survive failure, cancellation, and process restart.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-3-typescript-runtime.html">3</a></td>
+          <td>An agent-authored TypeScript module compiles and runs in the restricted isolate.</td>
+          <td>Source, JavaScript, source map, and compiler evidence are persisted.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-4-context-projections.html">4</a></td>
+          <td>Workers receive explicit bounded context projections.</td>
+          <td>No unregistered fragment or transcript dump reaches inference.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-5-capability-routing.html">5</a></td>
+          <td>Workflows request capability lanes; the host selects model and effort.</td>
+          <td>Route evidence explains selection, alternatives, and escalation.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-6-intent-resolution.html">6</a></td>
+          <td>Intent uncertainty becomes a typed root-owned transition.</td>
+          <td>The user is interrupted only for material ambiguity.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-7-mission-verification.html">7</a></td>
+          <td>Implementation and journey verification prove the requested behavior exists.</td>
+          <td>Behavioral repairs repeat journey verification.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-8-quality-landing.html">8</a></td>
+          <td>Code-quality judgment and optional landing checks follow mission proof.</td>
+          <td>Merge checks run only when landing is requested.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Bootstrap program</h2>
+    <p>
+      Until these primitives are first class,
+      <a href="../index.ts"><code>sdk/typescript/samples/workflow_orchestrator/index.ts</code></a>
+      loops current SDK sessions over these exact phase documents. It is a temporary executor, not
+      the product API. It reserves every attempt before inference, retains the original deadline on
+      resume, and closes abandoned attempts as interrupted. With two repairs allowed per phase, the
+      eight-phase worst-case path is explicitly capped at 72 sessions, 45 minutes each, and eight
+      elapsed hours from the first start. Writable sessions run in one isolated worktree under the
+      development Codex home, seeded from an anchored snapshot of the intended source working tree,
+      including untracked files; the shared checkout is never their workspace. The selected HTML
+      contents, complete phase definitions, execution order, and hashes are pinned in the run ledger
+      before the first session.
+    </p>
+    <pre><code>D:\dev\codex-dev\bin\run-agent-workflow.ps1
+
+# Begin or resume a bounded run
+D:\dev\codex-dev\bin\run-agent-workflow.ps1 --execute --run-id workflow-runtime-01</code></pre>
+
+    <h2>Repository truth</h2>
+    <ul>
+      <li>
+        Current SDK orchestration remains an exec wrapper:
+        <a href="../../../../../sdk/typescript/src/exec.ts"
+          ><code>sdk/typescript/src/exec.ts:86</code></a
+        >.
+      </li>
+      <li>
+        Code mode already provides isolate sessions and cancellation:
+        <a href="../../../../../codex-rs/code-mode-protocol/src/session.rs"
+          ><code>codex-rs/code-mode-protocol/src/session.rs:107</code></a
+        >.
+      </li>
+      <li>
+        Code mode already loads restricted modules and source-map metadata:
+        <a href="../../../../../codex-rs/code-mode/src/runtime/module_loader.rs"
+          ><code>codex-rs/code-mode/src/runtime/module_loader.rs:147</code></a
+        >.
+      </li>
+      <li>
+        Worker lifecycle already exists in core:
+        <a href="../../../../../codex-rs/core/src/agent/control.rs"
+          ><code>codex-rs/core/src/agent/control.rs:88</code></a
+        >.
+      </li>
+    </ul>
+
+    <p class="gate stop">
+      <strong>Deferred:</strong> visual workflow UI, automatic capability learning, generic DAG/DSL
+      authoring, distributed execution, automatic worktree merging, and automatic merge.
+    </p>
+  </body>
+</html>

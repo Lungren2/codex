@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 5 · Capability routing</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-4-context-projections.html">← Context projections</a
+      ><a href="index.html">Overview</a
+      ><a href="phase-6-intent-resolution.html">Next: Intent resolution →</a>
+    </nav>
+    <h1>Phase 5 · Host-owned capability routing</h1>
+    <p class="lede">
+      Workflows request a capability lane and thresholds, never an unconstrained model choice. The
+      host resolves model plus reasoning effort from human-reviewed machine-local policy and records
+      why.
+    </p>
+
+    <h2>Decision</h2>
+    <pre><code>routing.select({ lane, minimum, escalation_allowed }) → {
+  invocation: { model, reasoning_effort, service_tier },
+  reason, eligible_alternatives, escalation_path, policy_revision
+}</code></pre>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Add <code>codex-rs/core/src/workflow/routing.rs</code> with lane request, immutable policy
+        snapshot, and route evidence types.
+      </li>
+      <li>
+        Load profiles from machine-local configuration; do not embed Luna/Terra/Sol scores in
+        protocol or source defaults.
+      </li>
+      <li>Order selection by minimum capability, lane affinity, then cost as tie-breaker.</li>
+      <li>
+        Classify failures before escalation: capability failure may escalate; tool, permission,
+        dependency, or repository failure may not.
+      </li>
+      <li>
+        Persist selected invocation, rejected eligible alternatives, reason, escalation path, and
+        policy revision in <code>StageResult</code>.
+      </li>
+    </ol>
+
+    <h2>Exact existing surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../sdk/typescript/src/threadOptions.ts"
+          ><code>sdk/typescript/src/threadOptions.ts:9</code></a
+        >
+        — current thread-scoped model controls.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/app-server-protocol/src/protocol/v2/turn.rs"
+          ><code>codex-rs/app-server-protocol/src/protocol/v2/turn.rs:71</code></a
+        >
+        — per-turn model and effort inputs.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/session/turn_context.rs"
+          ><code>codex-rs/core/src/session/turn_context.rs:111</code></a
+        >
+        — effective invocation settings.
+      </li>
+      <li>
+        <a href="../../../../../sdk/typescript/samples/workflow_orchestrator/runtime.ts"
+          ><code>sdk/typescript/samples/workflow_orchestrator/runtime.ts:14</code></a
+        >
+        — bootstrap's temporary fixed routing.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Route fixtures prove thresholds and lane affinity beat cost; cost breaks only equivalent
+      choices. Capability rejection triggers the configured next invocation, while tool and
+      environment failures preserve the route and return a non-capability terminal result.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> no self-learning ledger, silent policy mutation, mid-turn model
+      switching, or route choice from prompt prose.
+    </p>
+  </body>
+</html>

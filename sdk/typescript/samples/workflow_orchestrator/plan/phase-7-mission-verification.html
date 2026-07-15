@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 7 · Mission verification</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-6-intent-resolution.html">← Intent resolution</a
+      ><a href="index.html">Overview</a
+      ><a href="phase-8-quality-landing.html">Next: Quality and landing →</a>
+    </nav>
+    <h1>Phase 7 · Mission-first progress and journey verification</h1>
+    <p class="lede">
+      Prove user intent before cleanup. The implementer keeps continuity and uses only targeted
+      progress probes; a fresh tool-capable verifier then follows the real journey. Validation
+      purpose never selects thread granularity automatically.
+    </p>
+
+    <h2>Modes in this phase</h2>
+    <table>
+      <tbody>
+        <tr>
+          <th><code>progress_probe</code></th>
+          <td>Normally inline; confirms behavior is landing without merge-grade proof.</td>
+        </tr>
+        <tr>
+          <th><code>journey_review</code></th>
+          <td>
+            Fresh when independence helps; follows runtime or entry-to-effect code-path evidence.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Add <code>codex-rs/core/src/workflow/validation.rs</code> with validation mode separate from
+        context/granularity mode.
+      </li>
+      <li>
+        Record implementer decisions, alternatives considered, relevant files, and inline probe
+        evidence without requiring tests.
+      </li>
+      <li>
+        Give journey verification browser/runtime/tool authority explicitly; a diff alone cannot
+        satisfy the journey contract.
+      </li>
+      <li>
+        When runtime execution is unavailable, require a bounded trace from user entry point to
+        observable effect and label it weaker evidence.
+      </li>
+      <li>After any behavioral repair, rerun journey verification before advancing.</li>
+    </ol>
+
+    <h2>Exact existing surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/app-server-protocol/src/protocol/v2/item.rs"
+          ><code>codex-rs/app-server-protocol/src/protocol/v2/item.rs:242</code></a
+        >
+        — command, diff, tool, and collaboration evidence.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/app-server-protocol/src/protocol/v2/command_exec.rs"
+          ><code>codex-rs/app-server-protocol/src/protocol/v2/command_exec.rs:21</code></a
+        >
+        — standalone runtime commands.
+      </li>
+      <li>
+        <a href="../../../../../sdk/typescript/src/events.ts"
+          ><code>sdk/typescript/src/events.ts:73</code></a
+        >
+        — bootstrap event visibility gap.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/agent/control.rs"
+          ><code>codex-rs/core/src/agent/control.rs:88</code></a
+        >
+        — independent worker lifecycle.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      An end-to-end workflow lands one observable behavior with inline probes, rejects a diff-only
+      journey claim, captures runtime evidence, repairs one functional defect, and repeats journey
+      verification successfully. No quality or merge gate runs in this phase.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> no coverage target, universal test suite, style review, merge command,
+      or automatic granularity fan-out.
+    </p>
+  </body>
+</html>

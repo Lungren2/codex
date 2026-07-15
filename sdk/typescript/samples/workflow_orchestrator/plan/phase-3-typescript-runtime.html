@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 3 · TypeScript runtime</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-2-stage-kernel.html">← Stage kernel</a><a href="index.html">Overview</a
+      ><a href="phase-4-context-projections.html">Next: Context projections →</a>
+    </nav>
+    <h1>Phase 3 · Restricted agent-authored TypeScript</h1>
+    <p class="lede">
+      Complete the defining product path: Codex accepts agent-authored TypeScript, transpiles it on
+      the host, and runs the JavaScript artifact in the existing restricted V8 isolate. TypeScript
+      never gains Node, filesystem, or network authority.
+    </p>
+
+    <h2>Compilation artifact</h2>
+    <pre><code>WorkflowProgram {
+  source_ts, source_sha256,
+  compiled_js, compiled_sha256,
+  source_map, compiler_name, compiler_version,
+  compiler_options, diagnostics, compiled_at
+}</code></pre>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Add a private <code>codex-typescript-compiler</code> crate backed by the workspace-pinned
+        <code>deno_ast</code> crate with its <code>transpiling</code> feature. It parses only the
+        supplied source string and returns JavaScript, source map, and diagnostics.
+      </li>
+      <li>
+        Add <code>codex-rs/code-mode-protocol/src/typescript.rs</code> for compiler input,
+        diagnostics, and persisted evidence; <code>codex-code-mode</code> calls the compiler crate
+        through one <code>typescript.rs</code> boundary.
+      </li>
+      <li>
+        Strip types only; reject decorators, declaration emission, ambient modules, dynamic import,
+        and compiler plugins.
+      </li>
+      <li>
+        Retain the existing module allowlist. Compilation must not resolve packages or read
+        arbitrary files.
+      </li>
+      <li>
+        Persist source TypeScript, compiled JavaScript, source map, compiler identity/options,
+        hashes, and diagnostics before evaluation.
+      </li>
+      <li>
+        Map compile and runtime failures back to TypeScript locations in the terminal
+        <code>StageResult</code>.
+      </li>
+      <li>
+        Update <code>codex-rs/Cargo.toml</code>, both affected crate manifests and
+        <code>BUILD.bazel</code> files, <code>codex-rs/Cargo.lock</code>, and
+        <code>MODULE.bazel.lock</code>; run <code>just bazel-lock-update</code> with the dependency
+        change.
+      </li>
+    </ol>
+
+    <h2>Exact existing surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/code-mode/src/runtime/module_loader.rs"
+          ><code>codex-rs/code-mode/src/runtime/module_loader.rs:147</code></a
+        >
+        — module loading and source-map URL.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/code-mode/src/runtime/mod.rs"
+          ><code>codex-rs/code-mode/src/runtime/mod.rs:1</code></a
+        >
+        — isolate runtime boundary.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/code-mode-protocol/src/session.rs"
+          ><code>codex-rs/code-mode-protocol/src/session.rs:107</code></a
+        >
+        — executable cell input and cancellation.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/code-mode-protocol/src/description.rs"
+          ><code>codex-rs/code-mode-protocol/src/description.rs:444</code></a
+        >
+        — existing TypeScript-facing tool declarations.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/code_cell.rs"
+          ><code>codex-rs/rollout-trace/src/code_cell.rs:80</code></a
+        >
+        — persisted code-cell evidence.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/Cargo.toml"><code>codex-rs/Cargo.toml:1</code></a>
+        — workspace crate and <code>deno_ast</code> dependency pin.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/code-mode/Cargo.toml"
+          ><code>codex-rs/code-mode/Cargo.toml:1</code></a
+        >
+        — compiler-crate integration.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/Cargo.lock"><code>codex-rs/Cargo.lock:1</code></a> and
+        <a href="../../../../../MODULE.bazel.lock"><code>MODULE.bazel.lock:1</code></a>
+        — Cargo and Bazel dependency locks.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Integration tests compile and execute typed orchestration with <code>workflow__run</code>, map
+      a thrown error to the TypeScript source line, reproduce identical JavaScript from persisted
+      compiler evidence, and reject package imports, dynamic imports, Node globals, filesystem, and
+      network access.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> no package manager, arbitrary imports, type-checking service, generic
+      DSL, alternate compiler backends, or suspended-program replay.
+    </p>
+  </body>
+</html>

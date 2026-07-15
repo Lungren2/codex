@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 1 · Worker API</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="index.html">Overview</a><a href="phase-2-stage-kernel.html">Next: Stage kernel →</a>
+    </nav>
+    <h1>Phase 1 · Workflow-native worker invocation</h1>
+    <p class="lede">
+      Ship one enabling substrate: a JavaScript code cell calls
+      <code>tools.workflow__run(...)</code>, core runs one child turn, and the promise resolves to a
+      typed terminal envelope. Phase 3 turns this substrate into the defining TypeScript product.
+    </p>
+
+    <h2>Contract</h2>
+    <pre><code>workflow__run({
+  prompt,
+  context: { mode: "fresh" | "all" | "last_n", turns? },
+  model?, reasoning_effort?, service_tier?, output_schema?
+}) → { worker_id, thread_id, status, output, usage, effective_settings }</code></pre>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Add <code>ToolExposure::CodeModeOnly</code>; never expose this as a direct model tool.
+      </li>
+      <li>
+        Add <code>codex-rs/core/src/workflow/invocation.rs</code> over
+        <code>AgentControl</code>/<code>ThreadManager</code>. Do not re-enter app-server RPC from
+        the active parent turn.
+      </li>
+      <li>Submit the child turn with <code>Op::UserInput</code> so schema and settings survive.</li>
+      <li>Return one terminal value; do not reproduce spawn/send/wait lifecycle handles.</li>
+      <li>Propagate parent cancellation, interrupt the child, and await cleanup.</li>
+    </ol>
+
+    <h2>Exact existing surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/tools/src/tool_executor.rs"
+          ><code>codex-rs/tools/src/tool_executor.rs:13</code></a
+        >
+        — tool exposure.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/tools/spec_plan.rs"
+          ><code>codex-rs/core/src/tools/spec_plan.rs:453</code></a
+        >
+        — nested registry construction.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/agent/control.rs"
+          ><code>codex-rs/core/src/agent/control.rs:88</code></a
+        >
+        — worker lifecycle and capacity.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/agent/status.rs"
+          ><code>codex-rs/core/src/agent/status.rs:6</code></a
+        >
+        — terminal message.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/protocol/src/protocol.rs"
+          ><code>codex-rs/protocol/src/protocol.rs:552</code></a
+        >
+        — full user-turn input.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/tools/parallel.rs"
+          ><code>codex-rs/core/src/tools/parallel.rs:158</code></a
+        >
+        — cancellation semantics.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      A core integration test runs one schema-constrained fresh worker from a code cell, asserts the
+      parsed terminal result, and proves cancellation leaves no child running. Full and last-N
+      history are separate cases; existing collaboration APIs remain unchanged.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> JavaScript invocation only. No stage policy, TypeScript compilation,
+      routing, retries, review, or DSL.
+    </p>
+  </body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 2 · Stage kernel</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-1-worker-api.html">← Worker API</a><a href="index.html">Overview</a
+      ><a href="phase-3-typescript-runtime.html">Next: TypeScript runtime →</a>
+    </nav>
+    <h1>Phase 2 · Stage kernel and durable envelope</h1>
+    <p class="lede">
+      Make <code>runStage()</code> the only privileged path. Reserve bounds before invocation and
+      persist one terminal result for success, invalid output, timeout, cancellation, crash, or
+      worker failure.
+    </p>
+
+    <h2>Envelope</h2>
+    <pre><code>StageResult {
+  run_id, stage_id, invocation_id, parent_invocation_id, attempt,
+  reserved_at, started_at, finished_at, status, output_claim,
+  effective_settings, context_manifest, usage, tool_evidence,
+  policy_violations, error
+}</code></pre>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>Persist the attempt reservation and immutable run deadline before starting inference.</li>
+      <li>Count failed, timed-out, cancelled, invalid-contract, and crashed attempts.</li>
+      <li>Snapshot model, effort, tier, permissions, environment, cwd, and parentage at start.</li>
+      <li>
+        Enforce source bytes, deadline, worker count, nested calls, concurrency, stored bytes, and
+        returned bytes.
+      </li>
+      <li>
+        Persist the terminal result through rollout trace; do not create a parallel evidence
+        database.
+      </li>
+      <li>
+        On restart, recover the original deadline and close abandoned reservations as terminal
+        failures.
+      </li>
+    </ol>
+
+    <h2>Exact existing surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/code-mode-protocol/src/runtime.rs"
+          ><code>codex-rs/code-mode-protocol/src/runtime.rs:11</code></a
+        >
+        — current output/yield bounds.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/code-mode/src/session_runtime/mod.rs"
+          ><code>codex-rs/code-mode/src/session_runtime/mod.rs:39</code></a
+        >
+        — session state.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/session/turn_context.rs"
+          ><code>codex-rs/core/src/session/turn_context.rs:111</code></a
+        >
+        — effective settings.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/model/runtime.rs"
+          ><code>codex-rs/rollout-trace/src/model/runtime.rs:23</code></a
+        >
+        — runtime trace model.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/code_cell.rs"
+          ><code>codex-rs/rollout-trace/src/code_cell.rs:80</code></a
+        >
+        — code-cell lifecycle.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs"
+          ><code>codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs:231</code></a
+        >
+        — historical metadata gap.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Table-driven integration tests cover every terminal state and bound. A kill-and-resume test
+      proves the deadline and attempt count cannot reset. Trace replay reconstructs the invocation
+      tree without consulting model prose.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> terminal-result durability only; suspended isolate replay, automatic
+      retry, and distributed execution remain deferred.
+    </p>
+  </body>
+</html>

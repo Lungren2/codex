@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 6 · Intent resolution</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-5-capability-routing.html">← Capability routing</a
+      ><a href="index.html">Overview</a
+      ><a href="phase-7-mission-verification.html">Next: Mission verification →</a>
+    </nav>
+    <h1>Phase 6 · Intent resolution</h1>
+    <p class="lede">
+      Defend the user's goal before planning without turning every task into a committee. One typed
+      resolver is the default; independent skepticism and user interruption are explicit,
+      evidence-backed transitions.
+    </p>
+
+    <h2>Contract</h2>
+    <pre><code>IntentResult {
+  understood_goal, success_criteria, explicit_constraints,
+  assumptions: [{ claim, confidence, source, material }],
+  pushback, blocking_questions,
+  transition: "proceed" | "proceed_with_assumptions" | "ask_user"
+}</code></pre>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Add <code>codex-rs/core/src/workflow/intent.rs</code> with the contract and transition
+        evaluator.
+      </li>
+      <li>
+        Resolve intent in one worker using the original request plus bounded repository facts.
+      </li>
+      <li>
+        Allow a separate skeptic only when product ambiguity, authority, data handling, or
+        user-journey risk justifies independence.
+      </li>
+      <li>
+        Ask at most three root-owned questions only when different answers materially change the
+        outcome.
+      </li>
+      <li>
+        Persist unanswered non-blocking assumptions in the mission brief and final decision
+        narrative.
+      </li>
+    </ol>
+
+    <h2>Exact existing surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/core/src/tools/handlers/request_user_input.rs"
+          ><code>codex-rs/core/src/tools/handlers/request_user_input.rs:61</code></a
+        >
+        — root-thread ownership.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/protocol/src/request_user_input.rs"
+          ><code>codex-rs/protocol/src/request_user_input.rs:1</code></a
+        >
+        — request/answer contract.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/session/mod.rs"
+          ><code>codex-rs/core/src/session/mod.rs:2501</code></a
+        >
+        — interactive request lifecycle.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/context/internal_model_context.rs"
+          ><code>codex-rs/core/src/context/internal_model_context.rs:78</code></a
+        >
+        — bounded internal context fragment.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Intent fixtures proceed through harmless uncertainty, expose assumptions, request an
+      independent skeptic only for a configured material risk, and pause the root workflow for no
+      more than three genuinely outcome-changing questions. A child worker cannot ask the user.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> no mandatory advocate/skeptic/resolver fan-out, certainty theater,
+      preference memory, or autonomous product decisions.
+    </p>
+  </body>
+</html>
