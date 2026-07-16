@@ -28,6 +28,16 @@ pub enum BaseInstructionsProvenance {
     RetainedSession,
 }
 
+impl BaseInstructionsProvenance {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::ModelCatalog => "model_catalog",
+            Self::ConfigOverride => "config_override",
+            Self::RetainedSession => "retained_session",
+        }
+    }
+}
+
 /// Prompt components immediately before transport-specific request transformation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PromptAssemblyTracePayload {
@@ -206,9 +216,10 @@ pub fn observe_request(
     let instructions_value = request
         .get("instructions")
         .cloned()
+        .or_else(|| assembly.map(|assembly| Value::String(assembly.base_instructions.clone())))
         .unwrap_or_else(|| Value::String(String::new()));
     let instructions_provenance = assembly
-        .map(|assembly| format!("{:?}", assembly.base_instructions_provenance).to_lowercase())
+        .map(|assembly| assembly.base_instructions_provenance.as_str().to_string())
         .unwrap_or_else(|| "unknown".to_string());
     let instructions = inventory_entry(
         "instructions",

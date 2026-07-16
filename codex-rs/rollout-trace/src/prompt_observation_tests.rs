@@ -53,6 +53,8 @@ fn responses_lite_inventory_exposes_transform_and_retained_instructions() {
     let view = observe_request("inference-1", request, Some(&assembly));
 
     assert_eq!(view.observation.model, "gpt-test");
+    assert_eq!(view.observation.instructions.character_count, 17);
+    assert_eq!(view.observation.instructions.provenance, "retained_session");
     assert_eq!(
         view.observation.responses_lite_transformation.prefix_order,
         vec!["tools", "base_instructions"]
@@ -73,6 +75,13 @@ fn responses_lite_inventory_exposes_transform_and_retained_instructions() {
             .as_ref()
             .map(|entry| entry.provenance.as_str()),
         Some("retained_session")
+    );
+    assert_eq!(
+        view.observation
+            .retained_session_instructions
+            .as_ref()
+            .map(|entry| entry.character_count),
+        Some(17)
     );
     assert_eq!(
         view.observation

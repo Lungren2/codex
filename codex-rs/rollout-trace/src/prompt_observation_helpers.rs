@@ -57,6 +57,9 @@ pub(super) fn additional_tools(input: &[Value]) -> Vec<Value> {
 }
 
 pub(super) fn collect_text(value: &Value) -> String {
+    if let Value::String(text) = value {
+        return text.clone();
+    }
     let mut text = Vec::new();
     collect_text_into(value, &mut text);
     text.join("\n")
