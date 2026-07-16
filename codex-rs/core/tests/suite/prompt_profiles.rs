@@ -1,14 +1,19 @@
 use anyhow::Context;
 use anyhow::Result;
 use codex_config::types::ExperimentalPromptProfile;
+use codex_features::Feature;
 use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::ModeKind;
+use codex_protocol::config_types::Personality;
 use codex_protocol::config_types::Settings;
+use codex_protocol::openai_models::ModelInstructionsVariables;
+use codex_protocol::openai_models::ModelMessages;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::Op;
 use codex_protocol::user_input::UserInput;
 use core_test_support::responses;
+use core_test_support::responses::strip_metadata_from_json;
 use core_test_support::skip_if_no_network;
 use core_test_support::test_codex::test_codex;
 use core_test_support::wait_for_event;
@@ -19,8 +24,10 @@ use test_case::test_case;
 const STOCK_BASE: &str = "Base start.\n## Personality\nRemove this tone.\n## Planning\nKeep this harness guidance.\n## Presenting your work and final message\nRemove this renderer guidance.";
 const USER_REQUEST: &str = "preserve this exact user request";
 const DEVELOPER_CONTEXT: &str = "preserve this configured developer context";
+const FRIENDLY_PERSONALITY: &str = "preserve this friendly personality guidance";
 
 struct RequestSnapshot {
+    normalized_body: Value,
     instructions: String,
     input: Vec<Value>,
     tools: Vec<Value>,
@@ -41,7 +48,16 @@ async fn request_for_profile(
     let mut builder = test_codex()
         .with_model_info_override("gpt-5.4", |model_info| {
             model_info.base_instructions = STOCK_BASE.to_string();
-            model_info.model_messages = None;
+            model_info.model_messages = Some(ModelMessages {
+                instructions_template: None,
+                instructions_variables: Some(ModelInstructionsVariables {
+                    personality_default: Some("default personality".to_string()),
+                    personality_friendly: Some(FRIENDLY_PERSONALITY.to_string()),
+                    personality_pragmatic: Some("pragmatic personality".to_string()),
+                }),
+                approvals: None,
+                auto_review: None,
+            });
         })
         .with_config(move |config| {
             if let Some(profile) = profile {
@@ -50,6 +66,11 @@ async fn request_for_profile(
             config.developer_instructions = Some(DEVELOPER_CONTEXT.to_string());
             config.include_apps_instructions = false;
             config.include_skill_instructions = false;
+            config
+                .features
+                .enable(Feature::Personality)
+                .expect("test config should allow personality");
+            config.personality = Some(Personality::Friendly);
         });
     let test = builder.build_with_auto_env(&server).await?;
     let stock_collaboration =
@@ -88,6 +109,7 @@ async fn request_for_profile(
     let request = response_mock.single_request();
     let body = request.body_json();
     let snapshot = RequestSnapshot {
+        normalized_body: normalize_request_body(body.clone()),
         instructions: body
             .get("instructions")
             .and_then(Value::as_str)
@@ -101,6 +123,14 @@ async fn request_for_profile(
             .clone(),
     };
     Ok(snapshot)
+}
+
+fn normalize_request_body(mut body: Value) -> Value {
+    if let Some(body) = body.as_object_mut() {
+        body.remove("client_metadata");
+        body.remove("prompt_cache_key");
+    }
+    strip_metadata_from_json(body)
 }
 
 fn message_input_texts<'a>(input: &'a [Value], role: &str) -> Vec<&'a str> {
@@ -118,9 +148,16 @@ async fn unconfigured_prompt_profile_uses_stock_request() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
     let unconfigured = request_for_profile(None).await?;
+    let explicit_stock = request_for_profile(Some(ExperimentalPromptProfile::Stock)).await?;
+    assert_eq!(unconfigured.normalized_body, explicit_stock.normalized_body);
     assert_eq!(unconfigured.instructions, STOCK_BASE);
     assert!(message_input_texts(&unconfigured.input, "user").contains(&USER_REQUEST));
     assert!(message_input_texts(&unconfigured.input, "developer").contains(&DEVELOPER_CONTEXT));
+    assert!(
+        message_input_texts(&unconfigured.input, "developer")
+            .iter()
+            .any(|text| text.contains(FRIENDLY_PERSONALITY))
+    );
     assert!(!unconfigured.tools.is_empty());
     Ok(())
 }
@@ -142,6 +179,16 @@ async fn prompt_profile_changes_only_its_declared_request_contributions(
     let request = request_for_profile(Some(profile)).await?;
     assert!(message_input_texts(&request.input, "user").contains(&USER_REQUEST));
     assert!(message_input_texts(&request.input, "developer").contains(&DEVELOPER_CONTEXT));
+    let has_personality = message_input_texts(&request.input, "developer")
+        .iter()
+        .any(|text| text.contains(FRIENDLY_PERSONALITY));
+    assert_eq!(
+        has_personality,
+        !matches!(
+            profile,
+            ExperimentalPromptProfile::NoProductGuidance | ExperimentalPromptProfile::FullyMinimal
+        )
+    );
 
     match profile {
         ExperimentalPromptProfile::Stock => {
