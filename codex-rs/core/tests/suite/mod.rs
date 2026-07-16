@@ -91,6 +91,7 @@ mod personality;
 mod plugins;
 mod prompt_caching;
 mod prompt_debug_tests;
+mod prompt_profiles;
 mod quota_exceeded;
 mod realtime_conversation;
 mod remote_env;

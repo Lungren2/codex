@@ -1,4 +1,5 @@
 use anyhow::Result;
+use codex_config::types::ExperimentalPromptProfile;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::Op;
 use codex_protocol::user_input::ByteRange;
@@ -243,6 +244,7 @@ async fn resume_switches_models_preserves_base_instructions() -> Result<()> {
     let server = start_mock_server().await;
     let mut builder = test_codex().with_config(|config| {
         config.model = Some("gpt-5.2".to_string());
+        config.base_instructions = Some("custom retained base instructions".to_string());
     });
     let initial = builder.build(&server).await?;
     let codex = Arc::clone(&initial.codex);
@@ -300,6 +302,7 @@ async fn resume_switches_models_preserves_base_instructions() -> Result<()> {
 
     let mut resume_builder = test_codex().with_config(|config| {
         config.model = Some("gpt-5.4".to_string());
+        config.experimental_prompt_profile = ExperimentalPromptProfile::MinimalBase;
     });
     let resumed = resume_builder.resume(&server, home, rollout_path).await?;
     resumed
