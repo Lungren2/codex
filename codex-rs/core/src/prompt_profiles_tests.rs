@@ -67,6 +67,17 @@ fn neutral_profile_preserves_character_length() {
 }
 
 #[test]
+fn neutral_profile_has_a_hard_context_item_cap() {
+    let source = "x".repeat(MAX_NEUTRAL_INSTRUCTION_CHARS * 2);
+    let neutral = apply_base_profile(
+        ExperimentalPromptProfile::NeutralLength,
+        source,
+        BaseProfileSource::ModelCatalog,
+    );
+    assert_eq!(neutral.chars().count(), MAX_NEUTRAL_INSTRUCTION_CHARS);
+}
+
+#[test]
 fn base_profiles_cover_the_gpt_5_6_model_family_catalog_prompts() {
     let catalog = codex_models_manager::bundled_models_response().expect("bundled model catalog");
     for slug in ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"] {
@@ -133,7 +144,7 @@ fn compact_tools_changes_descriptions_but_not_schemas() {
         "type": "function",
         "name": "inspect",
         "description": "Inspect one item. This tutorial sentence is removed.",
-        "parameters": schema.clone()
+        "parameters": schema
     })];
     compact_tool_descriptions(&mut tools);
     assert_eq!(tools[0]["description"], "Inspect one item.");
@@ -151,7 +162,7 @@ fn compact_tools_changes_namespace_and_nested_tool_descriptions_only() {
             "type": "function",
             "name": "lookup",
             "description": "Look up a value. Additional tutorial text.",
-            "parameters": schema.clone()
+            "parameters": schema
         }]
     })];
     compact_tool_descriptions(&mut tools);
@@ -201,8 +212,8 @@ fn compact_collaboration_preserves_mode_limits() {
             developer_instructions: Some(instructions_for(ModeKind::Plan)),
         },
     };
-    let default = compact_collaboration_mode(&default_mode, "default rendered".to_string());
-    let plan = compact_collaboration_mode(&plan_mode, "plan rendered".to_string());
+    let default = compact_collaboration_mode(&default_mode, "default source".to_string());
+    let plan = compact_collaboration_mode(&plan_mode, "plan source".to_string());
     assert!(default.contains("available tools"));
     assert!(default.contains("Only developer instructions"));
     assert!(plan.contains("non-mutating"));

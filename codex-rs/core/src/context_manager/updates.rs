@@ -96,19 +96,16 @@ fn build_collaboration_mode_update_item(
     if prev.collaboration_mode.as_ref() != Some(&collaboration_mode) {
         // If the next mode has empty developer instructions, this returns None and we emit no
         // update, so prior collaboration instructions remain in the prompt history.
-        Some(
-            if crate::prompt_profiles::compacts_collaboration(
-                next.config.experimental_prompt_profile,
-            ) {
-                let rendered =
-                    CollaborationModeInstructions::from_collaboration_mode(&collaboration_mode)?
-                        .render();
-                crate::prompt_profiles::compact_collaboration_mode(&collaboration_mode, rendered)
-            } else {
-                CollaborationModeInstructions::from_collaboration_mode(&collaboration_mode)?
-                    .render()
-            },
-        )
+        let mut instructions =
+            CollaborationModeInstructions::from_collaboration_mode(&collaboration_mode)?;
+        if crate::prompt_profiles::compacts_collaboration(next.config.experimental_prompt_profile) {
+            let compact = crate::prompt_profiles::compact_collaboration_mode(
+                &collaboration_mode,
+                instructions.body(),
+            );
+            instructions = instructions.with_instructions(compact);
+        }
+        Some(instructions.render())
     } else {
         None
     }

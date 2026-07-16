@@ -911,7 +911,7 @@ impl ModelClient {
             input: pre_transform_input,
             tools: tools.clone(),
             responses_lite: model_info.use_responses_lite,
-            responses_lite_prefix_order: responses_lite_prefix_order,
+            responses_lite_prefix_order,
         };
         let (instructions, tools) = if model_info.use_responses_lite {
             let additional_tools = ResponseItem::AdditionalTools {

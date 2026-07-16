@@ -38,6 +38,7 @@ use codex_rollout_trace::ConversationPart;
 use codex_rollout_trace::InferenceTraceContext;
 use codex_rollout_trace::RawTraceEventPayload;
 use codex_rollout_trace::TraceWriter;
+use codex_rollout_trace::load_prompt_request_debug_view;
 use codex_rollout_trace::replay_bundle;
 use core_test_support::TestCodexResponsesRequestKind;
 use core_test_support::load_default_config_for_test;
@@ -691,6 +692,21 @@ async fn responses_websocket_request_prewarm_traces_logical_request() {
             text: "hello".to_string(),
         }],
     );
+    let debug_view = load_prompt_request_debug_view(trace_dir.path(), None)
+        .expect("load prompt request debug view from real websocket trace");
+    assert_eq!(debug_view.canonical_request, follow_up);
+    assert!(
+        debug_view
+            .render_readable()
+            .contains(&format!("model: {MODEL}"))
+    );
+    let canonical_json = debug_view.canonical_json().expect("canonical JSON");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&canonical_json)
+            .expect("canonical request should parse"),
+        follow_up,
+    );
+    serde_json::to_string(&debug_view.observation).expect("observation JSON should serialize");
 
     server.shutdown().await;
 }

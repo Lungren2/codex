@@ -207,6 +207,18 @@ fn compact_permissions_preserve_roots_denied_reads_and_prefixes() {
 }
 
 #[test]
+fn compact_permissions_have_a_hard_fragment_cap() {
+    let text = cap_compact_permissions("x".repeat(COMPACT_PERMISSIONS_MAX_CHARS * 2));
+    assert_eq!(
+        (
+            text.chars().count(),
+            text.ends_with(COMPACT_PERMISSIONS_TRUNCATION_MARKER),
+        ),
+        (COMPACT_PERMISSIONS_MAX_CHARS, true),
+    );
+}
+
+#[test]
 fn builds_permissions_from_profile_with_denied_reads() {
     let cwd = test_path_buf("/tmp");
     let denied_root =

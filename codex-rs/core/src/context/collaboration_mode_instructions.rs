@@ -19,6 +19,11 @@ impl CollaborationModeInstructions {
                 instructions: instructions.clone(),
             })
     }
+
+    pub(crate) fn with_instructions(mut self, instructions: impl Into<String>) -> Self {
+        self.instructions = instructions.into();
+        self
+    }
 }
 
 impl ContextualUserFragment for CollaborationModeInstructions {

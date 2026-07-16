@@ -355,6 +355,12 @@ async fn resume_switches_models_preserves_base_instructions() -> Result<()> {
         first_model_switch_count >= 1,
         "expected model switch message on first post-resume turn"
     );
+    let first_model_switch = first_developer_texts
+        .iter()
+        .find(|text| text.contains("<model_switch>"))
+        .expect("model switch instructions");
+    assert!(first_model_switch.contains("You are Codex, a coding agent"));
+    assert!(!first_model_switch.contains("custom retained base instructions"));
 
     let second_resumed = &requests[1];
     assert_eq!(second_resumed.instructions_text(), initial_instructions);

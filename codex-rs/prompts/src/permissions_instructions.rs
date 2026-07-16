@@ -24,6 +24,8 @@ const APPROVAL_POLICY_ON_REQUEST_RULE: &str =
 const APPROVAL_POLICY_ON_REQUEST_RULE_REQUEST_PERMISSION: &str =
     include_str!("../templates/permissions/approval_policy/on_request_rule_request_permission.md");
 const AUTO_REVIEW_APPROVAL_SUFFIX: &str = "`approvals_reviewer` is `auto_review`: Sandbox escalations with require_escalated will be reviewed for compliance with the policy. If a rejection happens, you should proceed only with a materially safer alternative, or inform the user of the risk and send a final message to ask for approval.";
+const COMPACT_PERMISSIONS_MAX_CHARS: usize = 8_000;
+const COMPACT_PERMISSIONS_TRUNCATION_MARKER: &str = "\n[compact permissions truncated]\n";
 
 const SANDBOX_MODE_DANGER_FULL_ACCESS: &str =
     include_str!("../templates/permissions/sandbox_mode/danger_full_access.md");
@@ -150,7 +152,9 @@ impl PermissionsInstructions {
         if !text.ends_with('\n') {
             text.push('\n');
         }
-        Self { text }
+        Self {
+            text: cap_compact_permissions(text),
+        }
     }
 
     pub fn body(&self) -> String {
@@ -204,6 +208,23 @@ impl PermissionsInstructions {
         }
         Self { text }
     }
+}
+
+fn cap_compact_permissions(mut text: String) -> String {
+    let character_count = text.chars().count();
+    if character_count <= COMPACT_PERMISSIONS_MAX_CHARS {
+        return text;
+    }
+
+    let retained_characters = COMPACT_PERMISSIONS_MAX_CHARS
+        .saturating_sub(COMPACT_PERMISSIONS_TRUNCATION_MARKER.chars().count());
+    let end = text
+        .char_indices()
+        .nth(retained_characters)
+        .map_or(text.len(), |(index, _)| index);
+    text.truncate(end);
+    text.push_str(COMPACT_PERMISSIONS_TRUNCATION_MARKER);
+    text
 }
 
 fn compact_approval_text(

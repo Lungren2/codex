@@ -8,6 +8,11 @@ const MINIMAL_BASE_INSTRUCTIONS: &str = "You are Codex, a coding agent operating
 const NEUTRAL_TEXT: &str =
     "Neutral placeholder content preserves prompt length for a controlled comparison. ";
 
+// Neutral-length prompts intentionally exceed the 1K-token manual-review threshold so current
+// catalog prompts remain length-controlled. This cap is 8K tokens under the same four-characters-
+// per-token estimate used by prompt observability, leaving headroom below the 10K-token ceiling.
+const MAX_NEUTRAL_INSTRUCTION_CHARS: usize = 32_000;
+
 #[derive(Clone, Copy)]
 pub(crate) enum BaseProfileSource {
     ModelCatalog,
@@ -31,7 +36,12 @@ pub(crate) fn apply_base_profile(
         ExperimentalPromptProfile::MinimalBase | ExperimentalPromptProfile::FullyMinimal => {
             MINIMAL_BASE_INSTRUCTIONS.to_string()
         }
-        ExperimentalPromptProfile::NeutralLength => neutral_text(instructions.chars().count()),
+        ExperimentalPromptProfile::NeutralLength => neutral_text(
+            instructions
+                .chars()
+                .count()
+                .min(MAX_NEUTRAL_INSTRUCTION_CHARS),
+        ),
         ExperimentalPromptProfile::NoProductGuidance => strip_product_guidance(&instructions),
     }
 }
@@ -66,14 +76,14 @@ pub(crate) const fn compacts_tools(profile: ExperimentalPromptProfile) -> bool {
 
 pub(crate) fn compact_collaboration_mode(
     collaboration_mode: &CollaborationMode,
-    rendered: String,
+    instructions: String,
 ) -> String {
     let Some(source) = collaboration_mode
         .settings
         .developer_instructions
         .as_deref()
     else {
-        return rendered;
+        return instructions;
     };
     let is_stock =
         codex_models_manager::collaboration_mode_presets::builtin_collaboration_mode_presets()
@@ -83,7 +93,7 @@ pub(crate) fn compact_collaboration_mode(
             .flatten()
             .is_some_and(|stock| stock == source);
     if !is_stock {
-        return rendered;
+        return instructions;
     }
 
     let body = match collaboration_mode.mode {
@@ -94,7 +104,7 @@ pub(crate) fn compact_collaboration_mode(
             "Plan mode. Inspect and run non-mutating checks only; do not edit tracked files or execute the plan. Do not use `update_plan`. Discover facts before asking. Use `request_user_input` for material choices when available. Finish with one decision-complete `<proposed_plan>` block; only developer instructions can change collaboration mode."
         }
     };
-    format!("<collaboration_mode>{body}</collaboration_mode>")
+    body.to_string()
 }
 
 pub(crate) fn compact_tool_descriptions(tools: &mut [Value]) {

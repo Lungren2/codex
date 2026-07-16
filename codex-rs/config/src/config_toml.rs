@@ -1023,4 +1023,60 @@ mod tests {
         assert!(message.contains("TOML list of strings"));
         assert!(message.contains("comma-separated strings are not supported"));
     }
+
+    #[test]
+    fn experimental_prompt_controls_deserialize_from_root_and_profile_toml() {
+        for (value, expected) in [
+            ("stock", ExperimentalPromptProfile::Stock),
+            ("minimal-base", ExperimentalPromptProfile::MinimalBase),
+            ("neutral-length", ExperimentalPromptProfile::NeutralLength),
+            (
+                "no-product-guidance",
+                ExperimentalPromptProfile::NoProductGuidance,
+            ),
+            (
+                "compact-permissions",
+                ExperimentalPromptProfile::CompactPermissions,
+            ),
+            (
+                "compact-collaboration",
+                ExperimentalPromptProfile::CompactCollaboration,
+            ),
+            ("compact-tools", ExperimentalPromptProfile::CompactTools),
+            ("fully-minimal", ExperimentalPromptProfile::FullyMinimal),
+        ] {
+            let config: ConfigToml = toml::from_str(&format!(
+                "experimental_prompt_profile = \"{value}\"\n\
+                 experimental_responses_lite_prefix_order = \"base-then-tools\"\n\
+                 [profiles.eval]\n\
+                 experimental_prompt_profile = \"{value}\"\n\
+                 experimental_responses_lite_prefix_order = \"tools-then-base\""
+            ))
+            .expect("experimental prompt controls should deserialize");
+            assert_eq!(
+                (
+                    config.experimental_prompt_profile,
+                    config.experimental_responses_lite_prefix_order,
+                    config.profiles["eval"].experimental_prompt_profile,
+                    config.profiles["eval"].experimental_responses_lite_prefix_order,
+                ),
+                (
+                    Some(expected),
+                    Some(ExperimentalResponsesLitePrefixOrder::BaseThenTools),
+                    Some(expected),
+                    Some(ExperimentalResponsesLitePrefixOrder::ToolsThenBase),
+                ),
+            );
+        }
+    }
+
+    #[test]
+    fn experimental_prompt_controls_reject_unknown_values() {
+        let error = toml::from_str::<ConfigToml>(
+            "experimental_prompt_profile = \"unknown\"\n\
+             experimental_responses_lite_prefix_order = \"unknown\"",
+        )
+        .expect_err("unknown experimental prompt controls should fail");
+        assert!(error.to_string().contains("unknown variant"));
+    }
 }

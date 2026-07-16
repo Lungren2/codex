@@ -3314,21 +3314,19 @@ impl Session {
         }
         // Add developer instructions from collaboration_mode if they exist and are non-empty
         if turn_context.config.include_collaboration_mode_instructions
-            && let Some(collab_instructions) =
+            && let Some(mut collab_instructions) =
                 CollaborationModeInstructions::from_collaboration_mode(&collaboration_mode)
         {
-            developer_sections.push(
-                if crate::prompt_profiles::compacts_collaboration(
-                    turn_context.config.experimental_prompt_profile,
-                ) {
-                    crate::prompt_profiles::compact_collaboration_mode(
-                        &collaboration_mode,
-                        collab_instructions.render(),
-                    )
-                } else {
-                    collab_instructions.render()
-                },
-            );
+            if crate::prompt_profiles::compacts_collaboration(
+                turn_context.config.experimental_prompt_profile,
+            ) {
+                let compact = crate::prompt_profiles::compact_collaboration_mode(
+                    &collaboration_mode,
+                    collab_instructions.body(),
+                );
+                collab_instructions = collab_instructions.with_instructions(compact);
+            }
+            developer_sections.push(collab_instructions.render());
         }
         if let Some(realtime_update) = crate::context_manager::updates::build_initial_realtime_item(
             reference_context_item.as_ref(),
