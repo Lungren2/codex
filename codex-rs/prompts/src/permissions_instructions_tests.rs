@@ -86,6 +86,127 @@ fn builds_permissions_from_profile() {
 }
 
 #[test]
+fn compact_permissions_only_names_enabled_request_mechanisms() {
+    let request_tool_only = compact_approval_text(
+        AskForApproval::OnRequest,
+        ApprovalsReviewer::User,
+        &Policy::empty(),
+        /*exec_permission_approvals_enabled*/ false,
+        /*request_permissions_tool_enabled*/ true,
+    );
+    assert!(request_tool_only.contains("`request_permissions`"));
+    assert!(!request_tool_only.contains("`with_additional_permissions`"));
+
+    let exec_approval_only = compact_approval_text(
+        AskForApproval::OnRequest,
+        ApprovalsReviewer::User,
+        &Policy::empty(),
+        /*exec_permission_approvals_enabled*/ true,
+        /*request_permissions_tool_enabled*/ false,
+    );
+    assert!(exec_approval_only.contains("`with_additional_permissions`"));
+    assert!(!exec_approval_only.contains("`request_permissions`"));
+}
+
+#[test]
+fn compact_permissions_preserve_policy_and_reviewer_facts() {
+    let granular = AskForApproval::Granular(GranularApprovalConfig {
+        sandbox_approval: true,
+        rules: false,
+        skill_approval: true,
+        request_permissions: false,
+        mcp_elicitations: true,
+    });
+    for (policy, expected) in [
+        (AskForApproval::Never, "`approval_policy=never`"),
+        (
+            AskForApproval::UnlessTrusted,
+            "`approval_policy=unless-trusted`",
+        ),
+        (AskForApproval::OnRequest, "`approval_policy=on-request`"),
+        (granular, "`approval_policy=granular`"),
+    ] {
+        let user = compact_approval_text(
+            policy,
+            ApprovalsReviewer::User,
+            &Policy::empty(),
+            /*exec_permission_approvals_enabled*/ false,
+            /*request_permissions_tool_enabled*/ false,
+        );
+        assert!(user.contains(expected));
+        assert!(!user.contains("approvals_reviewer=auto_review"));
+
+        let auto_review = compact_approval_text(
+            policy,
+            ApprovalsReviewer::AutoReview,
+            &Policy::empty(),
+            /*exec_permission_approvals_enabled*/ false,
+            /*request_permissions_tool_enabled*/ false,
+        );
+        assert!(auto_review.contains(expected));
+        assert_eq!(
+            auto_review.contains("approvals_reviewer=auto_review"),
+            policy != AskForApproval::Never
+        );
+    }
+}
+
+#[test]
+fn compact_permissions_preserve_roots_denied_reads_and_prefixes() {
+    let cwd = test_path_buf("/tmp");
+    let writable_root =
+        AbsolutePathBuf::from_absolute_path(cwd.join("repo")).expect("absolute writable root");
+    let denied_root =
+        AbsolutePathBuf::from_absolute_path(cwd.join("blocked")).expect("absolute denied root");
+    let permission_profile = PermissionProfile::from_runtime_permissions(
+        &FileSystemSandboxPolicy::restricted(vec![
+            FileSystemSandboxEntry {
+                path: FileSystemPath::Path {
+                    path: writable_root.clone(),
+                },
+                access: FileSystemAccessMode::Write,
+            },
+            FileSystemSandboxEntry {
+                path: FileSystemPath::Path {
+                    path: denied_root.clone(),
+                },
+                access: FileSystemAccessMode::Deny,
+            },
+        ]),
+        NetworkSandboxPolicy::Enabled,
+    );
+    let mut exec_policy = Policy::empty();
+    exec_policy
+        .add_prefix_rule(&["git".to_string(), "pull".to_string()], Decision::Allow)
+        .expect("add prefix rule");
+
+    let text = PermissionsInstructions::from_permission_profile_compact(
+        &permission_profile,
+        AskForApproval::OnRequest,
+        ApprovalPromptContext::new(ApprovalsReviewer::AutoReview, /*messages*/ None),
+        &exec_policy,
+        &cwd,
+        /*exec_permission_approvals_enabled*/ true,
+        /*request_permissions_tool_enabled*/ true,
+    )
+    .body();
+
+    for expected in [
+        "sandbox_mode=workspace-write",
+        "network_access=enabled",
+        "approval_policy=on-request",
+        "approvals_reviewer=auto_review",
+        "with_additional_permissions",
+        "request_permissions",
+        r#"["git", "pull"]"#,
+    ] {
+        assert!(text.contains(expected), "missing {expected:?} in {text:?}");
+    }
+    assert!(text.contains(writable_root.to_string_lossy().as_ref()));
+    assert!(text.contains(denied_root.to_string_lossy().as_ref()));
+}
+
+#[test]
 fn builds_permissions_from_profile_with_denied_reads() {
     let cwd = test_path_buf("/tmp");
     let denied_root =

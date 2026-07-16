@@ -103,6 +103,56 @@ impl PermissionsInstructions {
         )
     }
 
+    /// Builds a concise statement of the same effective permission policy.
+    pub fn from_permission_profile_compact(
+        permission_profile: &PermissionProfile,
+        approval_policy: AskForApproval,
+        approval_context: ApprovalPromptContext<'_>,
+        exec_policy: &Policy,
+        cwd: &Path,
+        exec_permission_approvals_enabled: bool,
+        request_permissions_tool_enabled: bool,
+    ) -> Self {
+        let file_system_sandbox_policy = permission_profile.file_system_sandbox_policy();
+        let (sandbox_mode, writable_roots) =
+            sandbox_prompt_from_policy(&file_system_sandbox_policy, cwd);
+        let network_access =
+            network_access_from_policy(permission_profile.network_sandbox_policy());
+        let sandbox_mode = match sandbox_mode {
+            SandboxMode::DangerFullAccess => "danger-full-access",
+            SandboxMode::WorkspaceWrite => "workspace-write",
+            SandboxMode::ReadOnly => "read-only",
+        };
+        let network_access = match network_access {
+            NetworkAccess::Enabled => "enabled",
+            NetworkAccess::Restricted => "restricted",
+        };
+
+        let mut text = format!(
+            "Effective permissions: `sandbox_mode={sandbox_mode}`; `network_access={network_access}`."
+        );
+        append_section(
+            &mut text,
+            &compact_approval_text(
+                approval_policy,
+                approval_context.reviewer,
+                exec_policy,
+                exec_permission_approvals_enabled,
+                request_permissions_tool_enabled,
+            ),
+        );
+        if let Some(writable_roots) = writable_roots_text(writable_roots) {
+            append_section(&mut text, &writable_roots);
+        }
+        if let Some(denied_reads) = denied_reads_text(&file_system_sandbox_policy, cwd) {
+            append_section(&mut text, &denied_reads);
+        }
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
+        Self { text }
+    }
+
     pub fn body(&self) -> String {
         self.text.clone()
     }
@@ -154,6 +204,55 @@ impl PermissionsInstructions {
         }
         Self { text }
     }
+}
+
+fn compact_approval_text(
+    approval_policy: AskForApproval,
+    approvals_reviewer: ApprovalsReviewer,
+    exec_policy: &Policy,
+    exec_permission_approvals_enabled: bool,
+    request_permissions_tool_enabled: bool,
+) -> String {
+    let mut text = match approval_policy {
+        AskForApproval::Never => {
+            "`approval_policy=never`; approval requests are rejected. Do not request escalation."
+                .to_string()
+        }
+        AskForApproval::UnlessTrusted => "`approval_policy=unless-trusted`; only the safe read allowlist runs without approval. Request approval for other commands.".to_string(),
+        AskForApproval::OnRequest => {
+            let request_mode = if request_permissions_tool_enabled
+                && exec_permission_approvals_enabled
+            {
+                "Prefer `with_additional_permissions` or `request_permissions`; use `require_escalated` only when sandboxed permissions cannot satisfy the command."
+            } else if request_permissions_tool_enabled {
+                "Prefer `request_permissions`; use `require_escalated` only when sandboxed permissions cannot satisfy the command."
+            } else if exec_permission_approvals_enabled {
+                "Prefer `with_additional_permissions`; use `require_escalated` only when sandboxed permissions cannot satisfy the command."
+            } else {
+                "Use `require_escalated` with a short `justification` when the command must run outside the sandbox."
+            };
+            format!(
+                "`approval_policy=on-request`; command segments are evaluated independently. {request_mode}"
+            )
+        }
+        AskForApproval::Granular(config) => format!(
+            "`approval_policy=granular`; sandbox_approval={}; rules={}; skill_approval={}; request_permissions={}; mcp_elicitations={}.",
+            config.sandbox_approval,
+            config.rules,
+            config.skill_approval,
+            config.request_permissions,
+            config.mcp_elicitations
+        ),
+    };
+    if let Some(prefixes) = approved_command_prefixes_text(exec_policy) {
+        text.push_str(&format!(" Approved command prefixes: {prefixes}."));
+    }
+    if approvals_reviewer == ApprovalsReviewer::AutoReview
+        && approval_policy != AskForApproval::Never
+    {
+        text.push_str(" `approvals_reviewer=auto_review`; escalations are policy-reviewed.");
+    }
+    text
 }
 
 impl ContextualUserFragment for PermissionsInstructions {
