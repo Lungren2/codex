@@ -24,7 +24,7 @@ const APPROVAL_POLICY_ON_REQUEST_RULE: &str =
 const APPROVAL_POLICY_ON_REQUEST_RULE_REQUEST_PERMISSION: &str =
     include_str!("../templates/permissions/approval_policy/on_request_rule_request_permission.md");
 const AUTO_REVIEW_APPROVAL_SUFFIX: &str = "`approvals_reviewer` is `auto_review`: Sandbox escalations with require_escalated will be reviewed for compliance with the policy. If a rejection happens, you should proceed only with a materially safer alternative, or inform the user of the risk and send a final message to ask for approval.";
-const COMPACT_PERMISSIONS_MAX_CHARS: usize = 8_000;
+const COMPACT_PERMISSIONS_MAX_RENDERED_BYTES: usize = 8_000;
 const COMPACT_PERMISSIONS_TRUNCATION_MARKER: &str = "\n[compact permissions truncated]\n";
 
 const SANDBOX_MODE_DANGER_FULL_ACCESS: &str =
@@ -211,17 +211,18 @@ impl PermissionsInstructions {
 }
 
 fn cap_compact_permissions(mut text: String) -> String {
-    let character_count = text.chars().count();
-    if character_count <= COMPACT_PERMISSIONS_MAX_CHARS {
+    let (open_marker, close_marker) =
+        <PermissionsInstructions as ContextualUserFragment>::type_markers();
+    let max_body_bytes = COMPACT_PERMISSIONS_MAX_RENDERED_BYTES
+        .saturating_sub(open_marker.len() + close_marker.len());
+    if text.len() <= max_body_bytes {
         return text;
     }
 
-    let retained_characters = COMPACT_PERMISSIONS_MAX_CHARS
-        .saturating_sub(COMPACT_PERMISSIONS_TRUNCATION_MARKER.chars().count());
-    let end = text
-        .char_indices()
-        .nth(retained_characters)
-        .map_or(text.len(), |(index, _)| index);
+    let mut end = max_body_bytes.saturating_sub(COMPACT_PERMISSIONS_TRUNCATION_MARKER.len());
+    while !text.is_char_boundary(end) {
+        end = end.saturating_sub(1);
+    }
     text.truncate(end);
     text.push_str(COMPACT_PERMISSIONS_TRUNCATION_MARKER);
     text
