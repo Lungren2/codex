@@ -11,6 +11,8 @@ use crate::types::AnalyticsConfigToml;
 use crate::types::ApprovalsReviewer;
 use crate::types::AppsConfigToml;
 use crate::types::AuthCredentialsStoreMode;
+use crate::types::ExperimentalPromptProfile;
+use crate::types::ExperimentalResponsesLitePrefixOrder;
 use crate::types::FeedbackConfigToml;
 use crate::types::History;
 use crate::types::MarketplaceConfig;
@@ -217,6 +219,12 @@ pub struct ConfigToml {
 
     /// System instructions.
     pub instructions: Option<String>,
+
+    /// Development-only prompt profile for controlled request evaluations.
+    pub experimental_prompt_profile: Option<ExperimentalPromptProfile>,
+
+    /// Development-only Responses Lite prefix ordering experiment.
+    pub experimental_responses_lite_prefix_order: Option<ExperimentalResponsesLitePrefixOrder>,
 
     /// Developer instructions inserted as a `developer` role message.
     #[serde(default)]

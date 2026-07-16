@@ -632,6 +632,15 @@ impl Codex {
                     BaseInstructionsProvenance::ModelCatalog,
                 )
             };
+        let base_instructions = crate::prompt_profiles::apply_base_profile(
+            config.experimental_prompt_profile,
+            base_instructions,
+            if base_instructions_provenance == BaseInstructionsProvenance::ModelCatalog {
+                crate::prompt_profiles::BaseProfileSource::ModelCatalog
+            } else {
+                crate::prompt_profiles::BaseProfileSource::RetainedOrOverride
+            },
+        );
 
         // Dynamic tools are defined at thread start and persisted in rollout session metadata.
         let dynamic_tools = if dynamic_tools.is_empty() {
@@ -3240,7 +3249,33 @@ impl Session {
             developer_sections.push(model_switch_message);
         }
         if turn_context.config.include_permissions_instructions {
-            developer_sections.push(
+            let permissions = if crate::prompt_profiles::compacts_permissions(
+                turn_context.config.experimental_prompt_profile,
+            ) {
+                PermissionsInstructions::from_permission_profile_compact(
+                    &turn_context.permission_profile,
+                    turn_context.approval_policy.value(),
+                    ApprovalPromptContext::new(
+                        turn_context.config.approvals_reviewer,
+                        turn_context
+                            .model_info
+                            .model_messages
+                            .as_ref()
+                            .and_then(|messages| messages.approvals.as_ref()),
+                    ),
+                    self.services.exec_policy.current().as_ref(),
+                    #[allow(deprecated)]
+                    &turn_context.cwd,
+                    turn_context
+                        .config
+                        .features
+                        .enabled(Feature::ExecPermissionApprovals),
+                    turn_context
+                        .config
+                        .features
+                        .enabled(Feature::RequestPermissionsTool),
+                )
+            } else {
                 PermissionsInstructions::from_permission_profile(
                     &turn_context.permission_profile,
                     turn_context.approval_policy.value(),
@@ -3264,8 +3299,8 @@ impl Session {
                         .features
                         .enabled(Feature::RequestPermissionsTool),
                 )
-                .render(),
-            );
+            };
+            developer_sections.push(permissions.render());
         }
         let separate_guardian_developer_message =
             crate::guardian::is_guardian_reviewer_source(&session_source);
@@ -3282,7 +3317,18 @@ impl Session {
             && let Some(collab_instructions) =
                 CollaborationModeInstructions::from_collaboration_mode(&collaboration_mode)
         {
-            developer_sections.push(collab_instructions.render());
+            developer_sections.push(
+                if crate::prompt_profiles::compacts_collaboration(
+                    turn_context.config.experimental_prompt_profile,
+                ) {
+                    crate::prompt_profiles::compact_collaboration_mode(
+                        &collaboration_mode,
+                        collab_instructions.render(),
+                    )
+                } else {
+                    collab_instructions.render()
+                },
+            );
         }
         if let Some(realtime_update) = crate::context_manager::updates::build_initial_realtime_item(
             reference_context_item.as_ref(),
@@ -3292,6 +3338,9 @@ impl Session {
             developer_sections.push(realtime_update);
         }
         if self.features.enabled(Feature::Personality)
+            && !crate::prompt_profiles::removes_product_guidance(
+                turn_context.config.experimental_prompt_profile,
+            )
             && let Some(personality) = turn_context.personality
         {
             let model_info = turn_context.model_info.clone();
@@ -3340,7 +3389,11 @@ impl Session {
             .plugins_for_config(&turn_context.config.plugins_config_input())
             .await;
         let recommended_plugin_candidates =
-            if crate::tools::spec_plan::tool_suggest_enabled(turn_context) {
+            if crate::tools::spec_plan::tool_suggest_enabled(turn_context)
+                && !crate::prompt_profiles::removes_product_guidance(
+                    turn_context.config.experimental_prompt_profile,
+                )
+            {
                 let auth = self.services.auth_manager.auth().await;
                 let plugins_config = turn_context.config.plugins_config_input();
                 self.services

@@ -36,29 +36,51 @@ fn build_permissions_update_item(
         return None;
     }
 
-    Some(
-        PermissionsInstructions::from_permission_profile(
-            &next.permission_profile,
-            next.approval_policy.value(),
-            ApprovalPromptContext::new(
-                next.config.approvals_reviewer,
-                next.model_info
-                    .model_messages
-                    .as_ref()
-                    .and_then(|messages| messages.approvals.as_ref()),
-            ),
-            exec_policy,
-            #[allow(deprecated)]
-            &next.cwd,
-            next.config
-                .features
-                .enabled(Feature::ExecPermissionApprovals),
-            next.config
-                .features
-                .enabled(Feature::RequestPermissionsTool),
-        )
-        .render(),
-    )
+    let permissions =
+        if crate::prompt_profiles::compacts_permissions(next.config.experimental_prompt_profile) {
+            PermissionsInstructions::from_permission_profile_compact(
+                &next.permission_profile,
+                next.approval_policy.value(),
+                ApprovalPromptContext::new(
+                    next.config.approvals_reviewer,
+                    next.model_info
+                        .model_messages
+                        .as_ref()
+                        .and_then(|messages| messages.approvals.as_ref()),
+                ),
+                exec_policy,
+                #[allow(deprecated)]
+                &next.cwd,
+                next.config
+                    .features
+                    .enabled(Feature::ExecPermissionApprovals),
+                next.config
+                    .features
+                    .enabled(Feature::RequestPermissionsTool),
+            )
+        } else {
+            PermissionsInstructions::from_permission_profile(
+                &next.permission_profile,
+                next.approval_policy.value(),
+                ApprovalPromptContext::new(
+                    next.config.approvals_reviewer,
+                    next.model_info
+                        .model_messages
+                        .as_ref()
+                        .and_then(|messages| messages.approvals.as_ref()),
+                ),
+                exec_policy,
+                #[allow(deprecated)]
+                &next.cwd,
+                next.config
+                    .features
+                    .enabled(Feature::ExecPermissionApprovals),
+                next.config
+                    .features
+                    .enabled(Feature::RequestPermissionsTool),
+            )
+        };
+    Some(permissions.render())
 }
 
 fn build_collaboration_mode_update_item(
@@ -74,7 +96,19 @@ fn build_collaboration_mode_update_item(
     if prev.collaboration_mode.as_ref() != Some(&collaboration_mode) {
         // If the next mode has empty developer instructions, this returns None and we emit no
         // update, so prior collaboration instructions remain in the prompt history.
-        Some(CollaborationModeInstructions::from_collaboration_mode(&collaboration_mode)?.render())
+        Some(
+            if crate::prompt_profiles::compacts_collaboration(
+                next.config.experimental_prompt_profile,
+            ) {
+                let rendered =
+                    CollaborationModeInstructions::from_collaboration_mode(&collaboration_mode)?
+                        .render();
+                crate::prompt_profiles::compact_collaboration_mode(&collaboration_mode, rendered)
+            } else {
+                CollaborationModeInstructions::from_collaboration_mode(&collaboration_mode)?
+                    .render()
+            },
+        )
     } else {
         None
     }
@@ -141,7 +175,9 @@ fn build_personality_update_item(
     next: &TurnContext,
     personality_feature_enabled: bool,
 ) -> Option<String> {
-    if !personality_feature_enabled {
+    if !personality_feature_enabled
+        || crate::prompt_profiles::removes_product_guidance(next.config.experimental_prompt_profile)
+    {
         return None;
     }
     let previous = previous?;
@@ -180,7 +216,11 @@ pub(crate) fn build_model_instructions_update_item(
         return None;
     }
 
-    let model_instructions = next.model_info.get_model_instructions(next.personality);
+    let model_instructions = crate::prompt_profiles::apply_base_profile(
+        next.config.experimental_prompt_profile,
+        next.model_info.get_model_instructions(next.personality),
+        crate::prompt_profiles::BaseProfileSource::ModelCatalog,
+    );
     if model_instructions.is_empty() {
         return None;
     }

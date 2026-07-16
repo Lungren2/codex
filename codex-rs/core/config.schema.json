@@ -395,6 +395,12 @@
         "experimental_compact_prompt_file": {
           "$ref": "#/definitions/AbsolutePathBuf"
         },
+        "experimental_prompt_profile": {
+          "$ref": "#/definitions/ExperimentalPromptProfile"
+        },
+        "experimental_responses_lite_prefix_order": {
+          "$ref": "#/definitions/ExperimentalResponsesLitePrefixOrder"
+        },
         "experimental_use_unified_exec_tool": {
           "type": "boolean"
         },
@@ -903,6 +909,67 @@
       },
       "type": "object"
     },
+    "ExperimentalPromptProfile": {
+      "description": "Development-only prompt assembly profile used for controlled evaluations.",
+      "oneOf": [
+        {
+          "description": "Preserve the unmodified Codex request.",
+          "enum": [
+            "stock"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Replace only model-catalog base instructions; explicit and retained instructions stay exact.",
+          "enum": [
+            "minimal-base"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Replace base instructions with neutral text of the same character length.",
+          "enum": [
+            "neutral-length"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Remove product personality, presentation, renderer, and promotion guidance.",
+          "enum": [
+            "no-product-guidance"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Use a concise statement of the effective permission policy.",
+          "enum": [
+            "compact-permissions"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Use concise collaboration-mode capability and restriction guidance.",
+          "enum": [
+            "compact-collaboration"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Shorten tool descriptions without changing tool schemas.",
+          "enum": [
+            "compact-tools"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Combine every reduction profile.",
+          "enum": [
+            "fully-minimal"
+          ],
+          "type": "string"
+        }
+      ]
+    },
     "ExperimentalRequestUserInput": {
       "additionalProperties": false,
       "properties": {
@@ -912,6 +979,14 @@
         }
       },
       "type": "object"
+    },
+    "ExperimentalResponsesLitePrefixOrder": {
+      "description": "Development-only ordering experiment for the developer prefix used by Responses Lite.",
+      "enum": [
+        "tools-then-base",
+        "base-then-tools"
+      ],
+      "type": "string"
     },
     "ExternalConfigMigrationPrompts": {
       "additionalProperties": false,
@@ -4738,6 +4813,14 @@
     "experimental_compact_prompt_file": {
       "$ref": "#/definitions/AbsolutePathBuf"
     },
+    "experimental_prompt_profile": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExperimentalPromptProfile"
+        }
+      ],
+      "description": "Development-only prompt profile for controlled request evaluations."
+    },
     "experimental_realtime_start_instructions": {
       "description": "Experimental / do not use. Replaces the built-in realtime start instructions inserted into developer messages when realtime becomes active.",
       "type": "string"
@@ -4761,6 +4844,14 @@
     "experimental_realtime_ws_startup_context": {
       "description": "Experimental / do not use. Replaces the synthesized realtime startup context appended to websocket session instructions. An empty string disables startup context injection entirely.",
       "type": "string"
+    },
+    "experimental_responses_lite_prefix_order": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExperimentalResponsesLitePrefixOrder"
+        }
+      ],
+      "description": "Development-only Responses Lite prefix ordering experiment."
     },
     "experimental_thread_config_endpoint": {
       "description": "Experimental / do not use. When set, app-server fetches thread-scoped config from a remote service at this endpoint.",

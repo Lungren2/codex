@@ -60,6 +60,53 @@ const fn default_enabled() -> bool {
     true
 }
 
+/// Development-only prompt assembly profile used for controlled evaluations.
+#[derive(Serialize, Deserialize, Debug, Default, Copy, Clone, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExperimentalPromptProfile {
+    /// Preserve the unmodified Codex request.
+    #[default]
+    Stock,
+    /// Replace only model-catalog base instructions; explicit and retained instructions stay exact.
+    MinimalBase,
+    /// Replace base instructions with neutral text of the same character length.
+    NeutralLength,
+    /// Remove product personality, presentation, renderer, and promotion guidance.
+    NoProductGuidance,
+    /// Use a concise statement of the effective permission policy.
+    CompactPermissions,
+    /// Use concise collaboration-mode capability and restriction guidance.
+    CompactCollaboration,
+    /// Shorten tool descriptions without changing tool schemas.
+    CompactTools,
+    /// Combine every reduction profile.
+    FullyMinimal,
+}
+
+impl ExperimentalPromptProfile {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Stock => "stock",
+            Self::MinimalBase => "minimal-base",
+            Self::NeutralLength => "neutral-length",
+            Self::NoProductGuidance => "no-product-guidance",
+            Self::CompactPermissions => "compact-permissions",
+            Self::CompactCollaboration => "compact-collaboration",
+            Self::CompactTools => "compact-tools",
+            Self::FullyMinimal => "fully-minimal",
+        }
+    }
+}
+
+/// Development-only ordering experiment for the developer prefix used by Responses Lite.
+#[derive(Serialize, Deserialize, Debug, Default, Copy, Clone, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExperimentalResponsesLitePrefixOrder {
+    #[default]
+    ToolsThenBase,
+    BaseThenTools,
+}
+
 /// Preferred layout for the resume/fork session picker.
 #[derive(Serialize, Deserialize, Debug, Default, Copy, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "kebab-case")]

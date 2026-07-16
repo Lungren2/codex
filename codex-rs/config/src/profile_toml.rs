@@ -6,6 +6,8 @@ use serde::Serialize;
 use crate::config_toml::ToolsToml;
 use crate::types::AnalyticsConfigToml;
 use crate::types::ApprovalsReviewer;
+use crate::types::ExperimentalPromptProfile;
+use crate::types::ExperimentalResponsesLitePrefixOrder;
 use crate::types::Personality;
 use crate::types::SessionPickerViewMode;
 use crate::types::WindowsToml;
@@ -42,6 +44,8 @@ pub struct ConfigProfile {
     pub chatgpt_base_url: Option<String>,
     /// Optional path to a file containing model instructions.
     pub model_instructions_file: Option<AbsolutePathBuf>,
+    pub experimental_prompt_profile: Option<ExperimentalPromptProfile>,
+    pub experimental_responses_lite_prefix_order: Option<ExperimentalResponsesLitePrefixOrder>,
     /// Deprecated: ignored.
     #[schemars(skip)]
     pub js_repl_node_path: Option<AbsolutePathBuf>,

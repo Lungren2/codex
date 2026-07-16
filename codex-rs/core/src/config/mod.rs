@@ -36,6 +36,8 @@ use codex_config::sandbox_mode_requirement_for_permission_profile;
 use codex_config::types::ApprovalsReviewer;
 use codex_config::types::AuthCredentialsStoreMode;
 use codex_config::types::AuthKeyringBackendKind;
+use codex_config::types::ExperimentalPromptProfile;
+use codex_config::types::ExperimentalResponsesLitePrefixOrder;
 use codex_config::types::History;
 use codex_config::types::McpServerConfig;
 use codex_config::types::McpServerDisabledReason;
@@ -731,6 +733,12 @@ pub struct Config {
 
     /// Base instructions override.
     pub base_instructions: Option<String>,
+
+    /// Development-only prompt profile used for controlled evaluations.
+    pub experimental_prompt_profile: ExperimentalPromptProfile,
+
+    /// Development-only Responses Lite developer-prefix order.
+    pub experimental_responses_lite_prefix_order: ExperimentalResponsesLitePrefixOrder,
 
     /// Developer instructions override injected as a separate message.
     pub developer_instructions: Option<String>,
@@ -3721,6 +3729,10 @@ impl Config {
         let base_instructions = base_instructions
             .or(file_base_instructions)
             .or(cfg.instructions.clone());
+        let experimental_prompt_profile = cfg.experimental_prompt_profile.unwrap_or_default();
+        let experimental_responses_lite_prefix_order = cfg
+            .experimental_responses_lite_prefix_order
+            .unwrap_or_default();
         let developer_instructions = developer_instructions.or(cfg.developer_instructions);
         let include_permissions_instructions = cfg.include_permissions_instructions.unwrap_or(true);
         let include_apps_instructions = cfg.include_apps_instructions.unwrap_or(true);
@@ -3931,6 +3943,8 @@ impl Config {
             enforce_residency: enforce_residency.value,
             notify: cfg.notify,
             base_instructions,
+            experimental_prompt_profile,
+            experimental_responses_lite_prefix_order,
             personality,
             developer_instructions,
             compact_prompt,

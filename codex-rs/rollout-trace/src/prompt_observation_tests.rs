@@ -22,6 +22,7 @@ fn responses_lite_inventory_exposes_transform_and_retained_instructions() {
     })];
     let assembly = PromptAssemblyTracePayload {
         model: "gpt-test".to_string(),
+        prompt_profile: "stock".to_string(),
         base_instructions: "base instructions".to_string(),
         base_instructions_provenance: BaseInstructionsProvenance::RetainedSession,
         retained_session_instructions: Some("base instructions".to_string()),

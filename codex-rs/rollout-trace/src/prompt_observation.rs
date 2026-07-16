@@ -17,7 +17,7 @@ use crate::replay_bundle;
 mod helpers;
 use helpers::*;
 
-pub const PROMPT_OBSERVATION_SCHEMA_VERSION: u32 = 1;
+pub const PROMPT_OBSERVATION_SCHEMA_VERSION: u32 = 2;
 
 /// Why the session selected its base instructions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,6 +32,8 @@ pub enum BaseInstructionsProvenance {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PromptAssemblyTracePayload {
     pub model: String,
+    #[serde(default = "stock_prompt_profile")]
+    pub prompt_profile: String,
     pub base_instructions: String,
     pub base_instructions_provenance: BaseInstructionsProvenance,
     pub retained_session_instructions: Option<String>,
@@ -39,6 +41,10 @@ pub struct PromptAssemblyTracePayload {
     pub tools: Vec<Value>,
     pub responses_lite: bool,
     pub responses_lite_prefix_order: Vec<String>,
+}
+
+fn stock_prompt_profile() -> String {
+    "stock".to_string()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -81,6 +87,7 @@ pub struct PromptRequestObservation {
     pub schema_version: u32,
     pub inference_call_id: String,
     pub model: String,
+    pub prompt_profile: String,
     pub producing_subsystem: String,
     pub roles: Vec<String>,
     pub instructions: PromptInventoryEntry,
@@ -110,6 +117,7 @@ impl PromptRequestDebugView {
         let mut lines = vec![
             format!("inference: {}", observation.inference_call_id),
             format!("model: {}", observation.model),
+            format!("prompt_profile: {}", observation.prompt_profile),
             format!("producer: {}", observation.producing_subsystem),
             format!("roles: {}", observation.roles.join(", ")),
             format_entry("instructions", &observation.instructions),
@@ -289,6 +297,9 @@ pub fn observe_request(
             schema_version: PROMPT_OBSERVATION_SCHEMA_VERSION,
             inference_call_id: inference_call_id.to_string(),
             model,
+            prompt_profile: assembly
+                .map(|assembly| assembly.prompt_profile.clone())
+                .unwrap_or_else(stock_prompt_profile),
             producing_subsystem: "codex_core::client".to_string(),
             roles,
             instructions,

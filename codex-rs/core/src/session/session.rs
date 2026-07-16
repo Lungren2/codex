@@ -1126,6 +1126,10 @@ impl Session {
                 .with_prompt_debug_metadata(
                     session_configuration.base_instructions_provenance,
                     session_configuration.retained_session_instructions.clone(),
+                )
+                .with_prompt_profile(config.experimental_prompt_profile)
+                .with_responses_lite_prefix_order(
+                    config.experimental_responses_lite_prefix_order,
                 ),
                 code_mode_service: crate::tools::code_mode::CodeModeService::new(Arc::clone(
                     &code_mode_session_provider,

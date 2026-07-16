@@ -326,10 +326,11 @@ async fn responses_lite_request_retains_pre_transform_prompt_debug_data() -> any
         prompt_assembly,
         codex_rollout_trace::PromptAssemblyTracePayload {
             model: "gpt-test".to_string(),
+            prompt_profile: "stock".to_string(),
             base_instructions: retained_instructions.to_string(),
             base_instructions_provenance: BaseInstructionsProvenance::RetainedSession,
             retained_session_instructions: Some(retained_instructions.to_string()),
-            input: prompt.input,
+            input: prompt.input.clone(),
             tools: Vec::new(),
             responses_lite: true,
             responses_lite_prefix_order: vec!["tools".to_string(), "base_instructions".to_string(),],
@@ -349,6 +350,31 @@ async fn responses_lite_request_retains_pre_transform_prompt_debug_data() -> any
             .collect::<Vec<_>>(),
         vec![Some("developer"), Some("developer"), Some("user")]
     );
+
+    let empty_base_prompt = Prompt {
+        base_instructions: BaseInstructions {
+            text: String::new(),
+        },
+        ..prompt.clone()
+    };
+    let empty_base = client.build_responses_request(
+        &provider,
+        &empty_base_prompt,
+        &model_info,
+        /*effort*/ None,
+        codex_protocol::config_types::ReasoningSummary::None,
+        /*service_tier*/ None,
+        &responses_metadata,
+    )?;
+    assert_eq!(
+        empty_base.prompt_assembly.responses_lite_prefix_order,
+        vec!["tools"]
+    );
+    assert!(matches!(
+        empty_base.request.input.as_slice(),
+        [ResponseItem::AdditionalTools { .. }, ResponseItem::Message { role, .. }]
+            if role == "user"
+    ));
 
     Ok(())
 }

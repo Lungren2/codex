@@ -63,6 +63,8 @@ use codex_api::auth_header_telemetry;
 use codex_api::build_session_headers;
 use codex_api::create_text_param_for_request;
 use codex_api::response_create_client_metadata;
+use codex_config::types::ExperimentalPromptProfile;
+use codex_config::types::ExperimentalResponsesLitePrefixOrder;
 use codex_http_client::ClientRouteClass;
 use codex_http_client::HttpClientFactory;
 use codex_login::AuthManager;
@@ -256,6 +258,8 @@ pub struct ModelClient {
     prompt_cache_key_override: Option<String>,
     base_instructions_provenance: BaseInstructionsProvenance,
     retained_session_instructions: Option<String>,
+    prompt_profile: ExperimentalPromptProfile,
+    responses_lite_prefix_order: ExperimentalResponsesLitePrefixOrder,
     http_client_factory: HttpClientFactory,
 }
 
@@ -464,6 +468,8 @@ impl ModelClient {
             prompt_cache_key_override: None,
             base_instructions_provenance: BaseInstructionsProvenance::ModelCatalog,
             retained_session_instructions: None,
+            prompt_profile: ExperimentalPromptProfile::Stock,
+            responses_lite_prefix_order: ExperimentalResponsesLitePrefixOrder::ToolsThenBase,
             http_client_factory,
         }
     }
@@ -483,6 +489,19 @@ impl ModelClient {
     ) -> Self {
         self.base_instructions_provenance = base_instructions_provenance;
         self.retained_session_instructions = retained_session_instructions;
+        self
+    }
+
+    pub(crate) fn with_prompt_profile(mut self, prompt_profile: ExperimentalPromptProfile) -> Self {
+        self.prompt_profile = prompt_profile;
+        self
+    }
+
+    pub(crate) fn with_responses_lite_prefix_order(
+        mut self,
+        order: ExperimentalResponsesLitePrefixOrder,
+    ) -> Self {
+        self.responses_lite_prefix_order = order;
         self
     }
 
@@ -863,26 +882,45 @@ impl ModelClient {
                 .iter_mut()
                 .for_each(ResponseItem::clear_internal_chat_message_metadata_passthrough);
         }
-        let tools = create_tools_json_for_responses_api(&prompt.tools)?;
+        let mut tools = create_tools_json_for_responses_api(&prompt.tools)?;
+        if crate::prompt_profiles::compacts_tools(self.prompt_profile) {
+            crate::prompt_profiles::compact_tool_descriptions(&mut tools);
+        }
+        let responses_lite_prefix_order = if model_info.use_responses_lite {
+            match (
+                self.responses_lite_prefix_order,
+                prompt.base_instructions.text.is_empty(),
+            ) {
+                (_, true) => vec!["tools".to_string()],
+                (ExperimentalResponsesLitePrefixOrder::ToolsThenBase, false) => {
+                    vec!["tools".to_string(), "base_instructions".to_string()]
+                }
+                (ExperimentalResponsesLitePrefixOrder::BaseThenTools, false) => {
+                    vec!["base_instructions".to_string(), "tools".to_string()]
+                }
+            }
+        } else {
+            Vec::new()
+        };
         let prompt_assembly = PromptAssemblyTracePayload {
             model: model_info.slug.clone(),
+            prompt_profile: self.prompt_profile.as_str().to_string(),
             base_instructions: prompt.base_instructions.text.clone(),
             base_instructions_provenance: self.base_instructions_provenance,
             retained_session_instructions: self.retained_session_instructions.clone(),
             input: pre_transform_input,
             tools: tools.clone(),
             responses_lite: model_info.use_responses_lite,
-            responses_lite_prefix_order: if model_info
-                .use_responses_lite { vec!["tools".to_string(), "base_instructions".to_string()] } else { Default::default() },
+            responses_lite_prefix_order: responses_lite_prefix_order,
         };
         let (instructions, tools) = if model_info.use_responses_lite {
-            let mut prefix = vec![ResponseItem::AdditionalTools {
+            let additional_tools = ResponseItem::AdditionalTools {
                 id: None,
                 role: "developer".to_string(),
                 tools,
-            }];
-            if !prompt.base_instructions.text.is_empty() {
-                prefix.push(ResponseItem::Message {
+            };
+            let base_instructions =
+                (!prompt.base_instructions.text.is_empty()).then(|| ResponseItem::Message {
                     id: None,
                     role: "developer".to_string(),
                     content: vec![ContentItem::InputText {
@@ -891,7 +929,15 @@ impl ModelClient {
                     phase: None,
                     internal_chat_message_metadata_passthrough: None,
                 });
-            }
+            let prefix = match (self.responses_lite_prefix_order, base_instructions) {
+                (ExperimentalResponsesLitePrefixOrder::ToolsThenBase, Some(base_instructions)) => {
+                    vec![additional_tools, base_instructions]
+                }
+                (ExperimentalResponsesLitePrefixOrder::BaseThenTools, Some(base_instructions)) => {
+                    vec![base_instructions, additional_tools]
+                }
+                (_, None) => vec![additional_tools],
+            };
             input.splice(0..0, prefix);
             (String::new(), None)
         } else {
