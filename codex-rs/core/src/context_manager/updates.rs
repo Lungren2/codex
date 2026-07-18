@@ -36,50 +36,52 @@ fn build_permissions_update_item(
         return None;
     }
 
-    let permissions =
-        if crate::prompt_profiles::compacts_permissions(next.config.experimental_prompt_profile) {
-            PermissionsInstructions::from_permission_profile_compact(
-                &next.permission_profile,
-                next.approval_policy.value(),
-                ApprovalPromptContext::new(
-                    next.config.approvals_reviewer,
-                    next.model_info
-                        .model_messages
-                        .as_ref()
-                        .and_then(|messages| messages.approvals.as_ref()),
-                ),
-                exec_policy,
-                #[allow(deprecated)]
-                &next.cwd,
-                next.config
-                    .features
-                    .enabled(Feature::ExecPermissionApprovals),
-                next.config
-                    .features
-                    .enabled(Feature::RequestPermissionsTool),
-            )
-        } else {
-            PermissionsInstructions::from_permission_profile(
-                &next.permission_profile,
-                next.approval_policy.value(),
-                ApprovalPromptContext::new(
-                    next.config.approvals_reviewer,
-                    next.model_info
-                        .model_messages
-                        .as_ref()
-                        .and_then(|messages| messages.approvals.as_ref()),
-                ),
-                exec_policy,
-                #[allow(deprecated)]
-                &next.cwd,
-                next.config
-                    .features
-                    .enabled(Feature::ExecPermissionApprovals),
-                next.config
-                    .features
-                    .enabled(Feature::RequestPermissionsTool),
-            )
-        };
+    let permissions = if crate::prompt_profiles::compacts_permissions(
+        next.config.experimental_prompt_profile,
+        &next.config.experimental_prompt_profile_options,
+    ) {
+        PermissionsInstructions::from_permission_profile_compact(
+            &next.permission_profile,
+            next.approval_policy.value(),
+            ApprovalPromptContext::new(
+                next.config.approvals_reviewer,
+                next.model_info
+                    .model_messages
+                    .as_ref()
+                    .and_then(|messages| messages.approvals.as_ref()),
+            ),
+            exec_policy,
+            #[allow(deprecated)]
+            &next.cwd,
+            next.config
+                .features
+                .enabled(Feature::ExecPermissionApprovals),
+            next.config
+                .features
+                .enabled(Feature::RequestPermissionsTool),
+        )
+    } else {
+        PermissionsInstructions::from_permission_profile(
+            &next.permission_profile,
+            next.approval_policy.value(),
+            ApprovalPromptContext::new(
+                next.config.approvals_reviewer,
+                next.model_info
+                    .model_messages
+                    .as_ref()
+                    .and_then(|messages| messages.approvals.as_ref()),
+            ),
+            exec_policy,
+            #[allow(deprecated)]
+            &next.cwd,
+            next.config
+                .features
+                .enabled(Feature::ExecPermissionApprovals),
+            next.config
+                .features
+                .enabled(Feature::RequestPermissionsTool),
+        )
+    };
     Some(permissions.render())
 }
 
@@ -98,7 +100,10 @@ fn build_collaboration_mode_update_item(
         // update, so prior collaboration instructions remain in the prompt history.
         let mut instructions =
             CollaborationModeInstructions::from_collaboration_mode(&collaboration_mode)?;
-        if crate::prompt_profiles::compacts_collaboration(next.config.experimental_prompt_profile) {
+        if crate::prompt_profiles::compacts_collaboration(
+            next.config.experimental_prompt_profile,
+            &next.config.experimental_prompt_profile_options,
+        ) {
             let compact = crate::prompt_profiles::compact_collaboration_mode(
                 &collaboration_mode,
                 instructions.body(),
@@ -173,7 +178,10 @@ fn build_personality_update_item(
     personality_feature_enabled: bool,
 ) -> Option<String> {
     if !personality_feature_enabled
-        || crate::prompt_profiles::removes_product_guidance(next.config.experimental_prompt_profile)
+        || crate::prompt_profiles::removes_product_guidance(
+            next.config.experimental_prompt_profile,
+            &next.config.experimental_prompt_profile_options,
+        )
     {
         return None;
     }
@@ -215,6 +223,7 @@ pub(crate) fn build_model_instructions_update_item(
 
     let model_instructions = crate::prompt_profiles::apply_base_profile(
         next.config.experimental_prompt_profile,
+        &next.config.experimental_prompt_profile_options,
         next.model_info.get_model_instructions(next.personality),
         crate::prompt_profiles::BaseProfileSource::ModelCatalog,
     );

@@ -37,6 +37,7 @@ use codex_config::types::ApprovalsReviewer;
 use codex_config::types::AuthCredentialsStoreMode;
 use codex_config::types::AuthKeyringBackendKind;
 use codex_config::types::ExperimentalPromptProfile;
+use codex_config::types::ExperimentalPromptProfileOptions;
 use codex_config::types::ExperimentalResponsesLitePrefixOrder;
 use codex_config::types::History;
 use codex_config::types::McpServerConfig;
@@ -734,8 +735,11 @@ pub struct Config {
     /// Base instructions override.
     pub base_instructions: Option<String>,
 
-    /// Development-only prompt profile used for controlled evaluations.
+    /// Prompt profile used for runtime selection and controlled evaluations.
     pub experimental_prompt_profile: ExperimentalPromptProfile,
+
+    /// Selectable transformations used by the custom prompt profile.
+    pub experimental_prompt_profile_options: ExperimentalPromptProfileOptions,
 
     /// Development-only Responses Lite developer-prefix order.
     pub experimental_responses_lite_prefix_order: ExperimentalResponsesLitePrefixOrder,
@@ -3730,6 +3734,9 @@ impl Config {
             .or(file_base_instructions)
             .or(cfg.instructions.clone());
         let experimental_prompt_profile = cfg.experimental_prompt_profile.unwrap_or_default();
+        let experimental_prompt_profile_options = cfg
+            .experimental_prompt_profile_options
+            .unwrap_or_default();
         let experimental_responses_lite_prefix_order = cfg
             .experimental_responses_lite_prefix_order
             .unwrap_or_default();
@@ -3944,6 +3951,7 @@ impl Config {
             notify: cfg.notify,
             base_instructions,
             experimental_prompt_profile,
+            experimental_prompt_profile_options,
             experimental_responses_lite_prefix_order,
             personality,
             developer_instructions,

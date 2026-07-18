@@ -60,18 +60,18 @@ const fn default_enabled() -> bool {
     true
 }
 
-/// Development-only prompt assembly profile used for controlled evaluations.
+/// Prompt assembly profile used for runtime selection and controlled evaluations.
 #[derive(Serialize, Deserialize, Debug, Default, Copy, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ExperimentalPromptProfile {
     /// Preserve the unmodified Codex request.
-    #[default]
     Stock,
     /// Replace only model-catalog base instructions; explicit and retained instructions stay exact.
     MinimalBase,
     /// Replace base instructions with neutral text of the same character length.
     NeutralLength,
     /// Remove product personality, presentation, renderer, and promotion guidance.
+    #[default]
     NoProductGuidance,
     /// Use a concise statement of the effective permission policy.
     CompactPermissions,
@@ -81,6 +81,8 @@ pub enum ExperimentalPromptProfile {
     CompactTools,
     /// Combine every reduction profile.
     FullyMinimal,
+    /// Compose a profile from `experimental_prompt_profile_options`.
+    Custom,
 }
 
 impl ExperimentalPromptProfile {
@@ -94,8 +96,36 @@ impl ExperimentalPromptProfile {
             Self::CompactCollaboration => "compact-collaboration",
             Self::CompactTools => "compact-tools",
             Self::FullyMinimal => "fully-minimal",
+            Self::Custom => "custom",
         }
     }
+}
+
+/// Base-instruction treatment used by a custom prompt profile.
+#[derive(Serialize, Deserialize, Debug, Default, Copy, Clone, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExperimentalPromptBase {
+    #[default]
+    Stock,
+    Minimal,
+    NeutralLength,
+}
+
+/// Independently selectable transformations for a custom prompt profile.
+#[derive(Serialize, Deserialize, Debug, Default, Copy, Clone, PartialEq, Eq, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(deny_unknown_fields)]
+pub struct ExperimentalPromptProfileOptions {
+    #[serde(default)]
+    pub base: ExperimentalPromptBase,
+    #[serde(default)]
+    pub remove_product_guidance: bool,
+    #[serde(default)]
+    pub compact_permissions: bool,
+    #[serde(default)]
+    pub compact_collaboration: bool,
+    #[serde(default)]
+    pub compact_tools: bool,
 }
 
 /// Development-only ordering experiment for the developer prefix used by Responses Lite.

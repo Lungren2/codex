@@ -64,6 +64,7 @@ use codex_api::build_session_headers;
 use codex_api::create_text_param_for_request;
 use codex_api::response_create_client_metadata;
 use codex_config::types::ExperimentalPromptProfile;
+use codex_config::types::ExperimentalPromptProfileOptions;
 use codex_config::types::ExperimentalResponsesLitePrefixOrder;
 use codex_http_client::ClientRouteClass;
 use codex_http_client::HttpClientFactory;
@@ -259,6 +260,7 @@ pub struct ModelClient {
     base_instructions_provenance: BaseInstructionsProvenance,
     retained_session_instructions: Option<String>,
     prompt_profile: ExperimentalPromptProfile,
+    prompt_profile_options: ExperimentalPromptProfileOptions,
     responses_lite_prefix_order: ExperimentalResponsesLitePrefixOrder,
     http_client_factory: HttpClientFactory,
 }
@@ -468,7 +470,8 @@ impl ModelClient {
             prompt_cache_key_override: None,
             base_instructions_provenance: BaseInstructionsProvenance::ModelCatalog,
             retained_session_instructions: None,
-            prompt_profile: ExperimentalPromptProfile::Stock,
+            prompt_profile: ExperimentalPromptProfile::default(),
+            prompt_profile_options: ExperimentalPromptProfileOptions::default(),
             responses_lite_prefix_order: ExperimentalResponsesLitePrefixOrder::ToolsThenBase,
             http_client_factory,
         }
@@ -492,8 +495,13 @@ impl ModelClient {
         self
     }
 
-    pub(crate) fn with_prompt_profile(mut self, prompt_profile: ExperimentalPromptProfile) -> Self {
+    pub(crate) fn with_prompt_profile(
+        mut self,
+        prompt_profile: ExperimentalPromptProfile,
+        prompt_profile_options: ExperimentalPromptProfileOptions,
+    ) -> Self {
         self.prompt_profile = prompt_profile;
+        self.prompt_profile_options = prompt_profile_options;
         self
     }
 
@@ -883,7 +891,8 @@ impl ModelClient {
                 .for_each(ResponseItem::clear_internal_chat_message_metadata_passthrough);
         }
         let mut tools = create_tools_json_for_responses_api(&prompt.tools)?;
-        if crate::prompt_profiles::compacts_tools(self.prompt_profile) {
+        if crate::prompt_profiles::compacts_tools(self.prompt_profile, &self.prompt_profile_options)
+        {
             crate::prompt_profiles::compact_tool_descriptions(&mut tools);
         }
         let responses_lite_prefix_order = if model_info.use_responses_lite {
@@ -904,7 +913,10 @@ impl ModelClient {
         };
         let prompt_assembly = PromptAssemblyTracePayload {
             model: model_info.slug.clone(),
-            prompt_profile: self.prompt_profile.as_str().to_string(),
+            prompt_profile: crate::prompt_profiles::profile_name(
+                self.prompt_profile,
+                &self.prompt_profile_options,
+            ),
             base_instructions: prompt.base_instructions.text.clone(),
             base_instructions_provenance: self.base_instructions_provenance,
             retained_session_instructions: self.retained_session_instructions.clone(),

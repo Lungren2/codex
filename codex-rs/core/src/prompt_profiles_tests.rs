@@ -9,6 +9,7 @@ fn stock_base_profile_is_byte_identical() {
     assert_eq!(
         apply_base_profile(
             ExperimentalPromptProfile::Stock,
+            &ExperimentalPromptProfileOptions::default(),
             input.clone(),
             BaseProfileSource::ModelCatalog,
         ),
@@ -23,10 +24,12 @@ fn config_override_is_preserved_by_every_profile() {
         ExperimentalPromptProfile::NeutralLength,
         ExperimentalPromptProfile::NoProductGuidance,
         ExperimentalPromptProfile::FullyMinimal,
+        ExperimentalPromptProfile::Custom,
     ] {
         assert_eq!(
             apply_base_profile(
                 profile,
+                &ExperimentalPromptProfileOptions::default(),
                 "user override".to_string(),
                 BaseProfileSource::RetainedOrOverride,
             ),
@@ -42,10 +45,12 @@ fn retained_session_base_is_preserved_by_every_profile() {
         ExperimentalPromptProfile::NeutralLength,
         ExperimentalPromptProfile::NoProductGuidance,
         ExperimentalPromptProfile::FullyMinimal,
+        ExperimentalPromptProfile::Custom,
     ] {
         assert_eq!(
             apply_base_profile(
                 profile,
+                &ExperimentalPromptProfileOptions::default(),
                 "retained instructions".to_string(),
                 BaseProfileSource::RetainedOrOverride,
             ),
@@ -59,6 +64,7 @@ fn neutral_profile_preserves_character_length() {
     let source = "alpha βeta\nthird line".to_string();
     let neutral = apply_base_profile(
         ExperimentalPromptProfile::NeutralLength,
+        &ExperimentalPromptProfileOptions::default(),
         source.clone(),
         BaseProfileSource::ModelCatalog,
     );
@@ -71,6 +77,7 @@ fn neutral_profile_has_a_hard_context_item_cap() {
     let source = "x".repeat(MAX_NEUTRAL_INSTRUCTION_CHARS * 2);
     let neutral = apply_base_profile(
         ExperimentalPromptProfile::NeutralLength,
+        &ExperimentalPromptProfileOptions::default(),
         source,
         BaseProfileSource::ModelCatalog,
     );
@@ -92,6 +99,7 @@ fn base_profiles_cover_the_gpt_5_6_model_family_catalog_prompts() {
         assert_eq!(
             apply_base_profile(
                 ExperimentalPromptProfile::Stock,
+                &ExperimentalPromptProfileOptions::default(),
                 source.clone(),
                 BaseProfileSource::ModelCatalog,
             ),
@@ -99,6 +107,7 @@ fn base_profiles_cover_the_gpt_5_6_model_family_catalog_prompts() {
         );
         let neutral = apply_base_profile(
             ExperimentalPromptProfile::NeutralLength,
+            &ExperimentalPromptProfileOptions::default(),
             source.clone(),
             BaseProfileSource::ModelCatalog,
         );
@@ -107,6 +116,7 @@ fn base_profiles_cover_the_gpt_5_6_model_family_catalog_prompts() {
 
         let minimal = apply_base_profile(
             ExperimentalPromptProfile::MinimalBase,
+            &ExperimentalPromptProfileOptions::default(),
             source.clone(),
             BaseProfileSource::ModelCatalog,
         );
@@ -114,6 +124,7 @@ fn base_profiles_cover_the_gpt_5_6_model_family_catalog_prompts() {
 
         let no_product = apply_base_profile(
             ExperimentalPromptProfile::NoProductGuidance,
+            &ExperimentalPromptProfileOptions::default(),
             source,
             BaseProfileSource::ModelCatalog,
         );
@@ -126,6 +137,40 @@ fn base_profiles_cover_the_gpt_5_6_model_family_catalog_prompts() {
         );
         assert!(no_product.contains("# Using skills"), "{slug}");
     }
+}
+
+#[test]
+fn custom_profile_composes_selected_transformations() {
+    let options = ExperimentalPromptProfileOptions {
+        base: ExperimentalPromptBase::Stock,
+        remove_product_guidance: true,
+        compact_permissions: true,
+        compact_collaboration: false,
+        compact_tools: true,
+    };
+    let source = "# Personality\nremove\n# Rules\nkeep\n".to_string();
+    assert_eq!(
+        apply_base_profile(
+            ExperimentalPromptProfile::Custom,
+            &options,
+            source,
+            BaseProfileSource::ModelCatalog,
+        ),
+        "# Rules\nkeep\n"
+    );
+    assert!(compacts_permissions(
+        ExperimentalPromptProfile::Custom,
+        &options
+    ));
+    assert!(!compacts_collaboration(
+        ExperimentalPromptProfile::Custom,
+        &options
+    ));
+    assert!(compacts_tools(ExperimentalPromptProfile::Custom, &options));
+    assert_eq!(
+        profile_name(ExperimentalPromptProfile::Custom, &options),
+        "custom:stock+no-product-guidance+compact-permissions+compact-tools"
+    );
 }
 
 #[test]

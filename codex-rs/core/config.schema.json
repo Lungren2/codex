@@ -398,6 +398,9 @@
         "experimental_prompt_profile": {
           "$ref": "#/definitions/ExperimentalPromptProfile"
         },
+        "experimental_prompt_profile_options": {
+          "$ref": "#/definitions/ExperimentalPromptProfileOptions"
+        },
         "experimental_responses_lite_prefix_order": {
           "$ref": "#/definitions/ExperimentalResponsesLitePrefixOrder"
         },
@@ -909,8 +912,17 @@
       },
       "type": "object"
     },
+    "ExperimentalPromptBase": {
+      "description": "Base-instruction treatment used by a custom prompt profile.",
+      "enum": [
+        "stock",
+        "minimal",
+        "neutral-length"
+      ],
+      "type": "string"
+    },
     "ExperimentalPromptProfile": {
-      "description": "Development-only prompt assembly profile used for controlled evaluations.",
+      "description": "Prompt assembly profile used for runtime selection and controlled evaluations.",
       "oneOf": [
         {
           "description": "Preserve the unmodified Codex request.",
@@ -967,8 +979,46 @@
             "fully-minimal"
           ],
           "type": "string"
+        },
+        {
+          "description": "Compose a profile from `experimental_prompt_profile_options`.",
+          "enum": [
+            "custom"
+          ],
+          "type": "string"
         }
       ]
+    },
+    "ExperimentalPromptProfileOptions": {
+      "additionalProperties": false,
+      "description": "Independently selectable transformations for a custom prompt profile.",
+      "properties": {
+        "base": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/ExperimentalPromptBase"
+            }
+          ],
+          "default": "stock"
+        },
+        "compact_collaboration": {
+          "default": false,
+          "type": "boolean"
+        },
+        "compact_permissions": {
+          "default": false,
+          "type": "boolean"
+        },
+        "compact_tools": {
+          "default": false,
+          "type": "boolean"
+        },
+        "remove_product_guidance": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
     },
     "ExperimentalRequestUserInput": {
       "additionalProperties": false,
@@ -4819,7 +4869,15 @@
           "$ref": "#/definitions/ExperimentalPromptProfile"
         }
       ],
-      "description": "Development-only prompt profile for controlled request evaluations."
+      "description": "Prompt profile for runtime use and controlled request evaluations."
+    },
+    "experimental_prompt_profile_options": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExperimentalPromptProfileOptions"
+        }
+      ],
+      "description": "Selectable transformations used when `experimental_prompt_profile = \"custom\"`."
     },
     "experimental_realtime_start_instructions": {
       "description": "Experimental / do not use. Replaces the built-in realtime start instructions inserted into developer messages when realtime becomes active.",

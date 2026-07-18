@@ -7,6 +7,7 @@ use crate::config_toml::ToolsToml;
 use crate::types::AnalyticsConfigToml;
 use crate::types::ApprovalsReviewer;
 use crate::types::ExperimentalPromptProfile;
+use crate::types::ExperimentalPromptProfileOptions;
 use crate::types::ExperimentalResponsesLitePrefixOrder;
 use crate::types::Personality;
 use crate::types::SessionPickerViewMode;
@@ -45,6 +46,7 @@ pub struct ConfigProfile {
     /// Optional path to a file containing model instructions.
     pub model_instructions_file: Option<AbsolutePathBuf>,
     pub experimental_prompt_profile: Option<ExperimentalPromptProfile>,
+    pub experimental_prompt_profile_options: Option<ExperimentalPromptProfileOptions>,
     pub experimental_responses_lite_prefix_order: Option<ExperimentalResponsesLitePrefixOrder>,
     /// Deprecated: ignored.
     #[schemars(skip)]

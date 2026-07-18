@@ -1,4 +1,6 @@
+use codex_config::types::ExperimentalPromptBase;
 use codex_config::types::ExperimentalPromptProfile;
+use codex_config::types::ExperimentalPromptProfileOptions;
 use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::ModeKind;
 use serde_json::Value;
@@ -21,6 +23,7 @@ pub(crate) enum BaseProfileSource {
 
 pub(crate) fn apply_base_profile(
     profile: ExperimentalPromptProfile,
+    options: &ExperimentalPromptProfileOptions,
     instructions: String,
     source: BaseProfileSource,
 ) -> String {
@@ -28,50 +31,119 @@ pub(crate) fn apply_base_profile(
         return instructions;
     }
 
-    match profile {
-        ExperimentalPromptProfile::Stock
-        | ExperimentalPromptProfile::CompactPermissions
-        | ExperimentalPromptProfile::CompactCollaboration
-        | ExperimentalPromptProfile::CompactTools => instructions,
-        ExperimentalPromptProfile::MinimalBase | ExperimentalPromptProfile::FullyMinimal => {
-            MINIMAL_BASE_INSTRUCTIONS.to_string()
-        }
-        ExperimentalPromptProfile::NeutralLength => neutral_text(
+    let settings = resolved_options(profile, options);
+    let instructions = match settings.base {
+        ExperimentalPromptBase::Stock => instructions,
+        ExperimentalPromptBase::Minimal => MINIMAL_BASE_INSTRUCTIONS.to_string(),
+        ExperimentalPromptBase::NeutralLength => neutral_text(
             instructions
                 .chars()
                 .count()
                 .min(MAX_NEUTRAL_INSTRUCTION_CHARS),
         ),
-        ExperimentalPromptProfile::NoProductGuidance => strip_product_guidance(&instructions),
+    };
+    if settings.remove_product_guidance {
+        strip_product_guidance(&instructions)
+    } else {
+        instructions
     }
 }
 
-pub(crate) const fn removes_product_guidance(profile: ExperimentalPromptProfile) -> bool {
-    matches!(
-        profile,
-        ExperimentalPromptProfile::NoProductGuidance | ExperimentalPromptProfile::FullyMinimal
-    )
+pub(crate) fn removes_product_guidance(
+    profile: ExperimentalPromptProfile,
+    options: &ExperimentalPromptProfileOptions,
+) -> bool {
+    resolved_options(profile, options).remove_product_guidance
 }
 
-pub(crate) const fn compacts_permissions(profile: ExperimentalPromptProfile) -> bool {
-    matches!(
-        profile,
-        ExperimentalPromptProfile::CompactPermissions | ExperimentalPromptProfile::FullyMinimal
-    )
+pub(crate) fn compacts_permissions(
+    profile: ExperimentalPromptProfile,
+    options: &ExperimentalPromptProfileOptions,
+) -> bool {
+    resolved_options(profile, options).compact_permissions
 }
 
-pub(crate) const fn compacts_collaboration(profile: ExperimentalPromptProfile) -> bool {
-    matches!(
-        profile,
-        ExperimentalPromptProfile::CompactCollaboration | ExperimentalPromptProfile::FullyMinimal
-    )
+pub(crate) fn compacts_collaboration(
+    profile: ExperimentalPromptProfile,
+    options: &ExperimentalPromptProfileOptions,
+) -> bool {
+    resolved_options(profile, options).compact_collaboration
 }
 
-pub(crate) const fn compacts_tools(profile: ExperimentalPromptProfile) -> bool {
-    matches!(
-        profile,
-        ExperimentalPromptProfile::CompactTools | ExperimentalPromptProfile::FullyMinimal
-    )
+pub(crate) fn compacts_tools(
+    profile: ExperimentalPromptProfile,
+    options: &ExperimentalPromptProfileOptions,
+) -> bool {
+    resolved_options(profile, options).compact_tools
+}
+
+pub(crate) fn profile_name(
+    profile: ExperimentalPromptProfile,
+    options: &ExperimentalPromptProfileOptions,
+) -> String {
+    if profile != ExperimentalPromptProfile::Custom {
+        return profile.as_str().to_string();
+    }
+    let settings = resolved_options(profile, options);
+    let mut selections = vec![match settings.base {
+        ExperimentalPromptBase::Stock => "stock",
+        ExperimentalPromptBase::Minimal => "minimal",
+        ExperimentalPromptBase::NeutralLength => "neutral-length",
+    }];
+    if settings.remove_product_guidance {
+        selections.push("no-product-guidance");
+    }
+    if settings.compact_permissions {
+        selections.push("compact-permissions");
+    }
+    if settings.compact_collaboration {
+        selections.push("compact-collaboration");
+    }
+    if settings.compact_tools {
+        selections.push("compact-tools");
+    }
+    format!("custom:{}", selections.join("+"))
+}
+
+fn resolved_options(
+    profile: ExperimentalPromptProfile,
+    custom: &ExperimentalPromptProfileOptions,
+) -> ExperimentalPromptProfileOptions {
+    match profile {
+        ExperimentalPromptProfile::Stock => ExperimentalPromptProfileOptions::default(),
+        ExperimentalPromptProfile::MinimalBase => ExperimentalPromptProfileOptions {
+            base: ExperimentalPromptBase::Minimal,
+            ..Default::default()
+        },
+        ExperimentalPromptProfile::NeutralLength => ExperimentalPromptProfileOptions {
+            base: ExperimentalPromptBase::NeutralLength,
+            ..Default::default()
+        },
+        ExperimentalPromptProfile::NoProductGuidance => ExperimentalPromptProfileOptions {
+            remove_product_guidance: true,
+            ..Default::default()
+        },
+        ExperimentalPromptProfile::CompactPermissions => ExperimentalPromptProfileOptions {
+            compact_permissions: true,
+            ..Default::default()
+        },
+        ExperimentalPromptProfile::CompactCollaboration => ExperimentalPromptProfileOptions {
+            compact_collaboration: true,
+            ..Default::default()
+        },
+        ExperimentalPromptProfile::CompactTools => ExperimentalPromptProfileOptions {
+            compact_tools: true,
+            ..Default::default()
+        },
+        ExperimentalPromptProfile::FullyMinimal => ExperimentalPromptProfileOptions {
+            base: ExperimentalPromptBase::Minimal,
+            remove_product_guidance: true,
+            compact_permissions: true,
+            compact_collaboration: true,
+            compact_tools: true,
+        },
+        ExperimentalPromptProfile::Custom => *custom,
+    }
 }
 
 pub(crate) fn compact_collaboration_mode(

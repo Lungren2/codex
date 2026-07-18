@@ -1,6 +1,7 @@
 use anyhow::Context;
 use anyhow::Result;
 use codex_config::types::ExperimentalPromptProfile;
+use codex_config::types::ExperimentalPromptProfileOptions;
 use codex_features::Feature;
 use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::ModeKind;
@@ -36,6 +37,13 @@ struct RequestSnapshot {
 async fn request_for_profile(
     profile: Option<ExperimentalPromptProfile>,
 ) -> Result<RequestSnapshot> {
+    request_for_profile_with_options(profile, ExperimentalPromptProfileOptions::default()).await
+}
+
+async fn request_for_profile_with_options(
+    profile: Option<ExperimentalPromptProfile>,
+    options: ExperimentalPromptProfileOptions,
+) -> Result<RequestSnapshot> {
     let server = responses::start_mock_server().await;
     let response_mock = responses::mount_sse_once(
         &server,
@@ -63,6 +71,7 @@ async fn request_for_profile(
             if let Some(profile) = profile {
                 config.experimental_prompt_profile = profile;
             }
+            config.experimental_prompt_profile_options = options;
             config.developer_instructions = Some(DEVELOPER_CONTEXT.to_string());
             config.include_apps_instructions = false;
             config.include_skill_instructions = false;
@@ -144,17 +153,26 @@ fn message_input_texts<'a>(input: &'a [Value], role: &str) -> Vec<&'a str> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn unconfigured_prompt_profile_uses_stock_request() -> Result<()> {
+async fn unconfigured_prompt_profile_uses_no_product_guidance_request() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
     let unconfigured = request_for_profile(None).await?;
-    let explicit_stock = request_for_profile(Some(ExperimentalPromptProfile::Stock)).await?;
-    assert_eq!(unconfigured.normalized_body, explicit_stock.normalized_body);
-    assert_eq!(unconfigured.instructions, STOCK_BASE);
+    let explicit_default =
+        request_for_profile(Some(ExperimentalPromptProfile::NoProductGuidance)).await?;
+    assert_eq!(
+        unconfigured.normalized_body,
+        explicit_default.normalized_body
+    );
+    assert!(!unconfigured.instructions.contains("Personality"));
+    assert!(
+        unconfigured
+            .instructions
+            .contains("Keep this harness guidance")
+    );
     assert!(message_input_texts(&unconfigured.input, "user").contains(&USER_REQUEST));
     assert!(message_input_texts(&unconfigured.input, "developer").contains(&DEVELOPER_CONTEXT));
     assert!(
-        message_input_texts(&unconfigured.input, "developer")
+        !message_input_texts(&unconfigured.input, "developer")
             .iter()
             .any(|text| text.contains(FRIENDLY_PERSONALITY))
     );
@@ -170,6 +188,7 @@ async fn unconfigured_prompt_profile_uses_stock_request() -> Result<()> {
 #[test_case(ExperimentalPromptProfile::CompactCollaboration; "compact collaboration")]
 #[test_case(ExperimentalPromptProfile::CompactTools; "compact tools")]
 #[test_case(ExperimentalPromptProfile::FullyMinimal; "fully minimal")]
+#[test_case(ExperimentalPromptProfile::Custom; "custom")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn prompt_profile_changes_only_its_declared_request_contributions(
     profile: ExperimentalPromptProfile,
@@ -257,7 +276,41 @@ async fn prompt_profile_changes_only_its_declared_request_contributions(
             );
             assert!(!request.tools.is_empty());
         }
+        ExperimentalPromptProfile::Custom => {
+            assert_eq!(request.instructions, STOCK_BASE);
+            assert!(!request.tools.is_empty());
+        }
     }
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn custom_prompt_profile_composes_outbound_request_transformations() -> Result<()> {
+    skip_if_no_network!(Ok(()));
+
+    let request = request_for_profile_with_options(
+        Some(ExperimentalPromptProfile::Custom),
+        ExperimentalPromptProfileOptions {
+            remove_product_guidance: true,
+            compact_permissions: true,
+            compact_tools: true,
+            ..Default::default()
+        },
+    )
+    .await?;
+    assert!(!request.instructions.contains("Personality"));
+    assert!(request.instructions.contains("Keep this harness guidance"));
+    assert!(
+        request
+            .input
+            .iter()
+            .any(|item| item.to_string().contains("Effective permissions:"))
+    );
+    assert!(request.tools.iter().any(|tool| {
+        tool.get("description")
+            .and_then(Value::as_str)
+            .is_some_and(|description| description.len() < 300)
+    }));
     Ok(())
 }
 

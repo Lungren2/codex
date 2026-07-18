@@ -1127,7 +1127,10 @@ impl Session {
                     session_configuration.base_instructions_provenance,
                     session_configuration.retained_session_instructions.clone(),
                 )
-                .with_prompt_profile(config.experimental_prompt_profile)
+                .with_prompt_profile(
+                    config.experimental_prompt_profile,
+                    config.experimental_prompt_profile_options,
+                )
                 .with_responses_lite_prefix_order(
                     config.experimental_responses_lite_prefix_order,
                 ),

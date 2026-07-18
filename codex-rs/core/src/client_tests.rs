@@ -326,7 +326,7 @@ async fn responses_lite_request_retains_pre_transform_prompt_debug_data() -> any
         prompt_assembly,
         codex_rollout_trace::PromptAssemblyTracePayload {
             model: "gpt-test".to_string(),
-            prompt_profile: "stock".to_string(),
+            prompt_profile: "no-product-guidance".to_string(),
             base_instructions: retained_instructions.to_string(),
             base_instructions_provenance: BaseInstructionsProvenance::RetainedSession,
             retained_session_instructions: Some(retained_instructions.to_string()),

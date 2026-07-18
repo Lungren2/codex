@@ -634,6 +634,7 @@ impl Codex {
             };
         let base_instructions = crate::prompt_profiles::apply_base_profile(
             config.experimental_prompt_profile,
+            &config.experimental_prompt_profile_options,
             base_instructions,
             if base_instructions_provenance == BaseInstructionsProvenance::ModelCatalog {
                 crate::prompt_profiles::BaseProfileSource::ModelCatalog
@@ -3251,6 +3252,7 @@ impl Session {
         if turn_context.config.include_permissions_instructions {
             let permissions = if crate::prompt_profiles::compacts_permissions(
                 turn_context.config.experimental_prompt_profile,
+                &turn_context.config.experimental_prompt_profile_options,
             ) {
                 PermissionsInstructions::from_permission_profile_compact(
                     &turn_context.permission_profile,
@@ -3319,6 +3321,7 @@ impl Session {
         {
             if crate::prompt_profiles::compacts_collaboration(
                 turn_context.config.experimental_prompt_profile,
+                &turn_context.config.experimental_prompt_profile_options,
             ) {
                 let compact = crate::prompt_profiles::compact_collaboration_mode(
                     &collaboration_mode,
@@ -3338,6 +3341,7 @@ impl Session {
         if self.features.enabled(Feature::Personality)
             && !crate::prompt_profiles::removes_product_guidance(
                 turn_context.config.experimental_prompt_profile,
+                &turn_context.config.experimental_prompt_profile_options,
             )
             && let Some(personality) = turn_context.personality
         {
@@ -3390,6 +3394,7 @@ impl Session {
             if crate::tools::spec_plan::tool_suggest_enabled(turn_context)
                 && !crate::prompt_profiles::removes_product_guidance(
                     turn_context.config.experimental_prompt_profile,
+                    &turn_context.config.experimental_prompt_profile_options,
                 )
             {
                 let auth = self.services.auth_manager.auth().await;
