@@ -15,6 +15,10 @@ Codex desktop turn completes
 
 The app stores metadata in `%LOCALAPPDATA%\codex-review\review.sqlite3` and content-addressed patches below `%LOCALAPPDATA%\codex-review\patches`. It does not upload review artifacts to a separate service.
 
+## Codex utilities
+
+The `/utilities` surface owns the session-retention and daily-digest tools that previously lived under the Codex home. Their source is bundled from `tools/` with the desktop app; each user gets isolated configuration, locks, logs, evidence, and state under `%LOCALAPPDATA%\codex-review\utilities`. The screen reads the real utility status first and requires an explicit confirmation before a live run. Scheduled tasks call the repository-owned scripts with these LocalAppData configs; their pre-migration XML backups are retained beside the utility runtime state.
+
 ## Development
 
 ```powershell

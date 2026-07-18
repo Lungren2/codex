@@ -1,0 +1,18 @@
+{
+  "codexHome": "../..",
+  "codexCommand": "codex",
+  "codexCommandArgs": [],
+  "nodeCommand": "node",
+  "archive": {
+    "scheduleTime": "08:00",
+    "intervalDays": 1,
+    "inactiveHours": 24
+  },
+  "delete": {
+    "scheduleTime": "08:00",
+    "intervalDays": 1,
+    "retentionDays": 2
+  },
+  "lockStaleMinutes": 120,
+  "schedulerName": "CodexSessionRetention"
+}

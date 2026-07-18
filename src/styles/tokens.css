@@ -37,4 +37,19 @@
   --space-6: 2rem;
   --authority-height: 3.5rem;
   --toolbar-height: 3rem;
+  --workbench-bg: #101211;
+  --workbench-surface: #151817;
+  --workbench-surface-raised: #1a1e1c;
+  --workbench-surface-sunken: #0d0f0e;
+  --workbench-line: #2c312e;
+  --workbench-line-strong: #414844;
+  --workbench-ink: #e2e7e4;
+  --workbench-ink-muted: #9ca6a1;
+  --workbench-ink-faint: #737d78;
+  --workbench-accent: #55c891;
+  --workbench-accent-strong: #23845d;
+  --workbench-danger: #e06a64;
+  --workbench-warning: #d2b779;
+  --workbench-shadow-raised: 4px 4px 10px #090b0a, -3px -3px 8px rgb(51 58 54 / 28%);
+  --workbench-shadow-inset: inset 2px 2px 5px #090b0a, inset -2px -2px 5px rgb(51 58 54 / 24%);
 }

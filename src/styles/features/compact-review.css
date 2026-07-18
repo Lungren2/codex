@@ -1,12 +1,13 @@
 .compact-review {
+  color-scheme: dark;
   display: grid;
   grid-template-areas: "bar bar" "rail diff";
   grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
   grid-template-rows: 2.25rem minmax(0, 1fr);
   block-size: 100vh;
   overflow: hidden;
-  background: #111;
-  color: #c9cecb;
+  background: var(--workbench-bg);
+  color: var(--workbench-ink-muted);
   font-size: 0.75rem;
 }
 
@@ -15,20 +16,21 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-3);
   padding-inline: 0.7rem;
-  border-block-end: 1px solid #292b2a;
-  background: #0e0f0f;
-  color: #777d7a;
+  border-block-end: 1px solid var(--workbench-line);
+  background: var(--workbench-surface-sunken);
+  color: var(--workbench-ink-faint);
   font-family: var(--font-mono);
   font-size: 0.65rem;
   white-space: nowrap;
 }
 
-.compact-bar strong { color: #e3e6e4; font-size: 0.7rem; }
-.compact-state { margin-inline-start: auto; color: #55c891; }
+.compact-repository { color: var(--workbench-ink); font-size: 0.7rem; font-weight: 700; }
+.compact-bar .workbench-nav { padding-inline: 0.25rem 0.75rem; border-inline-end: 1px solid var(--workbench-line); }
+.compact-state { margin-inline-start: auto; color: var(--workbench-accent); }
 .compact-state--stale,
-.compact-state--unavailable { color: #e06a64; }
+.compact-state--unavailable { color: var(--workbench-danger); }
 
 .compact-rail {
   grid-area: rail;
@@ -37,8 +39,8 @@
   min-block-size: 0;
   grid-template-rows: minmax(7rem, 0.8fr) auto auto;
   overflow: hidden;
-  border-inline-end: 1px solid #292b2a;
-  background: #101111;
+  border-inline-end: 1px solid var(--workbench-line);
+  background: var(--workbench-surface-sunken);
 }
 
 .file-list {
@@ -78,7 +80,7 @@
   max-block-size: 14rem;
   overflow-y: auto;
   padding: 0.65rem 0.7rem;
-  border-block: 1px solid #292b2a;
+  border-block: 1px solid var(--workbench-line);
 }
 
 .file-context code { overflow-wrap: anywhere; color: #4bd18e; font-size: 0.66rem; }
@@ -94,17 +96,18 @@
 
 .scope-line { display: flex; min-inline-size: 0; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .scope-line > span { overflow: hidden; color: #777e7a; font: 0.6rem var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
-.scope-line select { max-inline-size: 7.5rem; min-block-size: 1.55rem; padding: 0 1.4rem 0 0.35rem; border: 1px solid #343735; border-radius: 2px; background: #151716; color: #aeb4b1; font-size: 0.62rem; }
-.compact-comment > textarea { min-block-size: 4.5rem; resize: vertical; border: 1px solid #343735; border-radius: 2px; padding: 0.5rem; background: #151716; color: #e2e5e3; font: 0.68rem/1.45 var(--font-sans); }
+.scope-line select { max-inline-size: 7.5rem; min-block-size: 1.55rem; padding: 0 1.4rem 0 0.35rem; border: 1px solid var(--workbench-line-strong); border-radius: var(--radius-sm); background: var(--workbench-surface); color: var(--workbench-ink-muted); font-size: 0.62rem; }
+.compact-comment > textarea { min-block-size: 4.5rem; resize: vertical; border: 1px solid var(--workbench-line-strong); border-radius: var(--radius-sm); padding: 0.5rem; background: var(--workbench-surface-sunken); box-shadow: var(--workbench-shadow-inset); color: var(--workbench-ink); font: 0.68rem/1.45 var(--font-sans); }
 .compact-comment > textarea:focus-visible,
 .scope-line select:focus-visible { outline: 1px solid #4ea9ff; outline-offset: 1px; }
-.compact-comment > button { min-block-size: 1.8rem; border: 1px solid #376f57; border-radius: 2px; background: #183c2e; color: #d9eee5; font-size: 0.66rem; font-weight: 650; }
+.compact-comment > button { min-block-size: 1.8rem; border: 1px solid #376f57; border-radius: var(--radius-sm); background: #183c2e; box-shadow: var(--workbench-shadow-raised); color: #d9eee5; font-size: 0.66rem; font-weight: 650; }
 .compact-comment > button:hover:not(:disabled) { background: #20503d; }
+.compact-comment > button:active:not(:disabled) { box-shadow: var(--workbench-shadow-inset); }
 .compact-comment > button:disabled { opacity: 0.42; cursor: not-allowed; }
 .compact-stale { display: flex; align-items: center; gap: 0.35rem; color: #d2b779; font-size: 0.62rem; }
 .compact-result { min-block-size: 0.8rem; color: #747b77; font-size: 0.6rem; }
 .compact-result--failed { color: #e06a64; }
-.compact-history { display: grid; gap: 0.15rem; margin: 0; padding-block-start: 0.35rem; border-block-start: 1px solid #292b2a; color: #9fa6a2; font-size: 0.62rem; }
+.compact-history { display: grid; gap: 0.15rem; margin: 0; padding-block-start: 0.35rem; border-block-start: 1px solid var(--workbench-line); color: #9fa6a2; font-size: 0.62rem; }
 .compact-history span { color: #55c891; font: 0.56rem var(--font-mono); text-transform: uppercase; }
 .compact-comment details { color: #8e9591; font-size: 0.62rem; }
 .compact-comment details textarea { inline-size: 100%; margin-block-start: 0.35rem; background: #151716; color: #bbc1be; }
@@ -114,7 +117,7 @@
   min-inline-size: 0;
   min-block-size: 0;
   overflow: auto;
-  background: #151616;
+  background: var(--workbench-surface);
   scrollbar-width: thin;
 }
 
@@ -129,6 +132,7 @@
 }
 
 @media (max-width: 42rem) {
+  .compact-bar > span:not(.compact-repository):not(.compact-state) { display: none; }
   .compact-review {
     grid-template-areas: "bar" "rail" "diff";
     grid-template-columns: minmax(0, 1fr);

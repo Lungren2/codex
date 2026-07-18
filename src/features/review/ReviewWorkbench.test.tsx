@@ -20,7 +20,7 @@ describe("ReviewWorkbench", () => {
   it("opens as a compact file-and-diff tool without editorial navigation", async () => {
     render(<ReviewWorkbench />);
 
-    expect(await screen.findByText("codex-review", { selector: ".compact-bar strong" })).toBeVisible();
+    expect(await screen.findByText("codex-review", { selector: ".compact-repository" })).toBeVisible();
     expect(screen.getByRole("navigation", { name: "Changed files" })).toHaveTextContent("src/contracts/review.ts");
     expect(screen.getByRole("region", { name: "Complete diff" })).toBeVisible();
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
@@ -29,7 +29,7 @@ describe("ReviewWorkbench", () => {
 
   it("keeps file explanation and scoped request beside the diff", async () => {
     render(<ReviewWorkbench />);
-    await screen.findByText("codex-review", { selector: ".compact-bar strong" });
+    await screen.findByText("codex-review", { selector: ".compact-repository" });
 
     expect(screen.getByLabelText("Active file explanation")).toHaveTextContent("src/contracts/review.ts");
     expect(screen.getByRole("textbox", { name: "Request change" })).toHaveAttribute("placeholder", expect.stringContaining("src/contracts/review.ts"));
@@ -37,7 +37,7 @@ describe("ReviewWorkbench", () => {
 
   it("maps Pierre line selection to exact feedback scope", async () => {
     render(<ReviewWorkbench />);
-    await screen.findByText("codex-review", { selector: ".compact-bar strong" });
+    await screen.findByText("codex-review", { selector: ".compact-repository" });
 
     fireEvent.click(screen.getByRole("row", { name: "changed lines" }));
 

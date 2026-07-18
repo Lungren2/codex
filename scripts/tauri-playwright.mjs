@@ -32,18 +32,20 @@ try {
   page = browser.contexts()[0]?.pages()[0];
   if (!page) throw new Error("Tauri WebView did not expose a page");
   await page.goto("http://localhost:1420/?demo=1");
-  await page.locator(".compact-bar strong").getByText("codex-review", { exact: true }).waitFor();
+  await page.locator(".compact-repository").getByText("codex-review", { exact: true }).waitFor();
   await page.waitForFunction(() =>
     [...document.querySelectorAll("diffs-container")].some((node) => node.shadowRoot?.textContent?.includes("artifactId")),
     undefined,
     { timeout: 30_000 },
   );
 
-  await capture(page, "wide", { width: 1500, height: 940 });
+  await capture(page, "review-wide", { width: 1500, height: 940 });
   const wideLayout = await page.evaluate(() => {
     const rail = document.querySelector(".compact-rail")?.getBoundingClientRect();
     const diff = document.querySelector(".compact-diff")?.getBoundingClientRect();
+    const bar = document.querySelector(".compact-bar")?.getBoundingClientRect();
     return {
+      barHeight: bar?.height,
       rail: rail && { x: rail.x, width: rail.width },
       diff: diff && { x: diff.x, width: diff.width },
       overflow: document.documentElement.scrollWidth - window.innerWidth,
@@ -54,8 +56,27 @@ try {
   if (wideLayout.overflow > 1 || wideLayout.rail?.x !== 0 || (wideLayout.diff?.x ?? 0) < 200 || wideLayout.headings !== 0 || wideLayout.segmentedControls !== 0) {
     throw new Error(`Compact diff layout is invalid: ${JSON.stringify(wideLayout)}`);
   }
-  await capture(page, "narrow", { width: 980, height: 800 });
-  await capture(page, "mobile", { width: 720, height: 800 });
+  await capture(page, "review-narrow", { width: 980, height: 800 });
+  await capture(page, "review-mobile", { width: 390, height: 800 });
+
+  for (const route of ["utilities", "skills"]) {
+    await page.goto(`http://localhost:1420/${route}`);
+    await page.locator(`.${route}-shell`).waitFor();
+    await capture(page, `${route}-wide`, { width: 1500, height: 940 });
+    await capture(page, `${route}-mobile`, { width: 390, height: 800 });
+    const shell = await page.evaluate((name) => {
+      const root = document.querySelector(`.${name}-shell`);
+      const bar = root?.firstElementChild?.getBoundingClientRect();
+      return {
+        height: root?.getBoundingClientRect().height,
+        barHeight: bar?.height,
+        overflow: document.documentElement.scrollWidth - window.innerWidth,
+      };
+    }, route);
+    if (shell.height !== 800 || Math.abs((shell.barHeight ?? 0) - (wideLayout.barHeight ?? 0)) > 0.5 || shell.overflow > 1) {
+      throw new Error(`${route} shell is inconsistent: ${JSON.stringify(shell)}`);
+    }
+  }
   process.stdout.write(`Verified Tauri WebView at ${endpoint}\n`);
 } finally {
   await page?.evaluate(() => window.__TAURI_INTERNALS__?.invoke("exit_application")).catch(() => undefined);

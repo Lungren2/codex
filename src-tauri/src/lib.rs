@@ -4,9 +4,11 @@ mod git_capture;
 pub mod models;
 mod notify;
 mod notify_install;
+mod skill_installer;
 mod store;
 mod synthesis;
 mod tray;
+mod utilities;
 
 use anyhow::{Context, Result};
 use std::path::PathBuf;
@@ -109,6 +111,11 @@ pub fn run() {
             commands::notify_status,
             commands::prepare_feedback_handoff,
             commands::exit_application,
+            utilities::utility_status,
+            utilities::run_utility,
+            skill_installer::skill_installer_defaults,
+            skill_installer::inspect_skill_source,
+            skill_installer::install_skills,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Codex Review");

@@ -13,7 +13,7 @@ export default defineConfig({
     },
   },
   envPrefix: ["VITE_", "TAURI_ENV_*"],
-  test: { setupFiles: ["./src/testing/setup.ts"] },
+  test: { setupFiles: ["./src/testing/setup.ts"], exclude: ["**/node_modules/**", "**/tools/**/*.test.mjs"] },
   build: {
     // Windows/WebView2 is the supported v1 runtime. Add platform-specific targets when
     // portable packaging is introduced instead of lowering every build to Safari 13.

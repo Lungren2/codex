@@ -55,6 +55,23 @@ export async function setRepositoryBase(repositoryRoot: string, baseRef: string)
   return invoke<void>("set_repository_base", { repositoryRoot, baseRef });
 }
 
+export type UtilityResult = { utility: string; mode: string; result: Record<string, unknown> };
+
+export async function utilityStatus(utility: "session-retention" | "daily-digest"): Promise<UtilityResult> {
+  if (!inTauri()) return { utility, mode: "status", result: { available: false, message: "Open Codex Review to inspect this utility." } };
+  return invoke<UtilityResult>("utility_status", { utility });
+}
+
+export async function runUtility(utility: "session-retention" | "daily-digest"): Promise<UtilityResult> {
+  if (!inTauri()) throw new Error("Utilities run only in the Codex Review desktop app.");
+  return invoke<UtilityResult>("run_utility", { utility });
+}
+
+export type SkillSource = { source: string; targetHome: string; skills: Array<{ name: string; installed: boolean }> };
+export async function skillInstallerDefaults(): Promise<SkillSource> { return invoke("skill_installer_defaults"); }
+export async function inspectSkillSource(source: string, targetHome: string): Promise<SkillSource> { return invoke("inspect_skill_source", { source, targetHome }); }
+export async function installSkills(source: string, targetHome: string, skills: string[], existing: "overwrite" | "backup" | "skip"): Promise<string[]> { return invoke("install_skills", { request: { source, targetHome, skills, existing } }); }
+
 function toListItem(artifact: ReviewArtifact): ArtifactListItem {
   return {
     artifactId: artifact.artifactId,

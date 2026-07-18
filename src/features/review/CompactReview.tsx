@@ -6,6 +6,7 @@ import type {
   ReviewArtifact,
   ReviewDecision,
 } from "../../contracts/review";
+import { WorkbenchNav } from "../../components/WorkbenchNav";
 import { DiffView } from "./components/DiffView";
 
 type Props = {
@@ -65,7 +66,8 @@ export function CompactReview({
   return (
     <main className="compact-review">
       <header className="compact-bar">
-        <strong>{repositoryName(artifact.repository.root)}</strong>
+        <span className="compact-repository">{repositoryName(artifact.repository.root)}</span>
+        <WorkbenchNav active="review" />
         <span>{artifact.repository.branch ?? "detached"}</span>
         <span>← {artifact.repository.baseRef}</span>
         <span>{artifact.files.length} files</span>
