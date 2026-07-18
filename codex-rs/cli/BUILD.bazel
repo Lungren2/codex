@@ -5,6 +5,7 @@ load("//bazel/rules:e2e_benchmark.bzl", "codex_e2e_benchmark")
 codex_rust_crate(
     name = "cli",
     crate_name = "codex_cli",
+    compile_data = glob(["assets/benchmark/**"]),
     extra_binaries = [
         "//codex-rs/bwrap:bwrap",
     ],

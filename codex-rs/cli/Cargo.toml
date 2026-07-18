@@ -19,6 +19,7 @@ workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+axum = { workspace = true, features = ["http1", "json", "tokio"] }
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true }
 codex-app-server = { workspace = true }
@@ -60,6 +61,7 @@ codex-tui = { workspace = true }
 codex-utils-absolute-path = { workspace = true }
 codex-utils-path = { workspace = true }
 crossterm = { workspace = true }
+dunce = { workspace = true }
 http = { workspace = true }
 libc = { workspace = true }
 os_info = { workspace = true }
@@ -71,12 +73,14 @@ supports-color = { workspace = true }
 sys-locale = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = [
+    "fs",
     "io-std",
     "macros",
     "net",
     "process",
     "rt-multi-thread",
     "signal",
+    "sync",
     "time",
 ] }
 toml = { workspace = true }
@@ -85,6 +89,7 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 unicode-segmentation = { workspace = true }
 url = { workspace = true }
+webbrowser = { workspace = true }
 which = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
