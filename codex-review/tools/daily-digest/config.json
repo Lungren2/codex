@@ -1,0 +1,21 @@
+{
+  "codexHome": "../..",
+  "outputDir": "~/Desktop",
+  "outputFilename": "Codex Daily Digest.html",
+  "digestDirName": "Codex Daily Digests",
+  "outputFormat": "html",
+  "tmpDir": "tmp",
+  "codexCommand": "codex",
+  "codexCommandArgs": [],
+  "nodeCommand": "node",
+  "model": null,
+  "profile": null,
+  "scheduleTime": "08:30",
+  "intervalDays": 1,
+  "maxCatchUpDays": 14,
+  "includeArchivedSessions": true,
+  "includeRetentionLogs": true,
+  "inferenceTimeoutMs": 180000,
+  "lockStaleMinutes": 120,
+  "schedulerName": "CodexDailyDigest"
+}

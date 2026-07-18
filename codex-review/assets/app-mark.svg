@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Codex Review</title>
+  <rect width="512" height="512" rx="112" fill="#101311"/>
+  <path d="M338 143c-23-17-51-26-82-26-77 0-139 62-139 139s62 139 139 139c31 0 59-9 82-26l-35-48c-13 9-29 14-47 14-44 0-79-35-79-79s35-79 79-79c18 0 34 5 47 14l35-48Z" fill="#e8eee8"/>
+  <path d="M291 211h104v90H291v-36h54v-18h-54v-36Z" fill="#d4a24c"/>
+</svg>
