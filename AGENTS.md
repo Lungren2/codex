@@ -1,8 +1,8 @@
 # Local fork boundary
 
-- This checkout is the source authority for custom Codex product, protocol, app-server, and harness changes.
+- This checkout is the source authority for custom Codex product, protocol, app-server, harness, and companion changes.
 - `D:\dev\codex-dev` is the machine-local integration hub and isolated build/home wrapper; it is not another source checkout.
-- `D:\dev\codex-review` owns companion-only review behavior. Do not add companion implementation to `codex-core` or this repository unless a reusable protocol need is explicitly in scope.
+- `codex-review/` owns companion-only review behavior. Keep companion implementation out of `codex-core`; reusable protocol needs belong in the existing Codex crates.
 - Use `D:\dev\codex-dev\ecosystem.json` instead of duplicating machine paths.
 - Preserve the isolation between `C:\Users\EthanO\.codex` and `C:\Users\EthanO\.codex-dev`.
 
