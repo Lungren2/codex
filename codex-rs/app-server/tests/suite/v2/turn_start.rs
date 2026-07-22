@@ -36,6 +36,7 @@ use codex_app_server_protocol::JSONRPCNotification;
 use codex_app_server_protocol::JSONRPCResponse;
 use codex_app_server_protocol::PatchApplyStatus;
 use codex_app_server_protocol::PatchChangeKind;
+use codex_app_server_protocol::RawResponseCompletedNotification;
 use codex_app_server_protocol::RequestId;
 use codex_app_server_protocol::ServerRequest;
 use codex_app_server_protocol::ServerRequestResolvedNotification;
@@ -51,6 +52,7 @@ use codex_app_server_protocol::ThreadSettingsUpdatedNotification;
 use codex_app_server_protocol::ThreadSource;
 use codex_app_server_protocol::ThreadStartParams;
 use codex_app_server_protocol::ThreadStartResponse;
+use codex_app_server_protocol::TokenUsageBreakdown;
 use codex_app_server_protocol::TurnCompletedNotification;
 use codex_app_server_protocol::TurnEnvironmentParams;
 use codex_app_server_protocol::TurnItemsView;
@@ -766,6 +768,105 @@ async fn turn_start_sends_service_tier_id_to_model_request() -> Result<()> {
 }
 
 #[tokio::test]
+async fn turn_start_emits_raw_response_completed_with_upstream_usage() -> Result<()> {
+    let server = responses::start_mock_server().await;
+    let body = responses::sse(vec![
+        responses::ev_response_created("resp-1"),
+        responses::ev_assistant_message("msg-1", "Done"),
+        json!({
+            "type": "response.completed",
+            "response": {
+                "id": "resp-1",
+                "usage": {
+                    "input_tokens": 30,
+                    "input_tokens_details": { "cached_tokens": 11 },
+                    "output_tokens": 7,
+                    "output_tokens_details": { "reasoning_tokens": 3 },
+                    "total_tokens": 37
+                }
+            }
+        }),
+    ]);
+    responses::mount_sse_once(&server, body).await;
+
+    let codex_home = TempDir::new()?;
+    create_config_toml(
+        codex_home.path(),
+        &server.uri(),
+        "never",
+        &BTreeMap::default(),
+    )?;
+    write_models_cache(codex_home.path())?;
+
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let thread_req = mcp
+        .send_thread_start_request_with_auto_env(ThreadStartParams {
+            experimental_raw_events: true,
+            ..Default::default()
+        })
+        .await?;
+    let thread_resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(thread_req)),
+    )
+    .await??;
+    let ThreadStartResponse { thread, .. } = to_response::<ThreadStartResponse>(thread_resp)?;
+
+    let turn_req = mcp
+        .send_turn_start_request(TurnStartParams {
+            thread_id: thread.id.clone(),
+            input: vec![V2UserInput::Text {
+                text: "Hello".to_string(),
+                text_elements: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .await?;
+    let turn_resp = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(turn_req)),
+    )
+    .await??;
+    let TurnStartResponse { turn } = to_response::<TurnStartResponse>(turn_resp)?;
+
+    let notification = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("rawResponse/completed"),
+    )
+    .await??;
+    let notification: codex_app_server_protocol::ServerNotification = notification.try_into()?;
+    let codex_app_server_protocol::ServerNotification::RawResponseCompleted(notification) =
+        notification
+    else {
+        anyhow::bail!("expected rawResponse/completed notification");
+    };
+
+    assert_eq!(
+        notification,
+        RawResponseCompletedNotification {
+            thread_id: thread.id,
+            turn_id: turn.id,
+            response_id: "resp-1".to_string(),
+            usage: Some(TokenUsageBreakdown {
+                total_tokens: 37,
+                input_tokens: 30,
+                cached_input_tokens: 11,
+                cache_write_input_tokens: 0,
+                output_tokens: 7,
+                reasoning_output_tokens: 3,
+            }),
+        }
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn thread_start_omits_empty_instruction_overrides_from_model_request() -> Result<()> {
     let server = responses::start_mock_server().await;
     let body = responses::sse(vec![
@@ -1328,6 +1429,96 @@ async fn turn_start_rejects_invalid_permission_selection_before_starting_turn() 
         turn_started.is_err(),
         "did not expect a turn/started notification after rejected permissions selection"
     );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn turn_start_accepts_managed_network_profile_from_requirements() -> Result<()> {
+    let responses = vec![create_final_assistant_message_sse_response("Done")?];
+    let server = create_mock_responses_server_sequence_unchecked(responses).await;
+
+    let codex_home = TempDir::new()?;
+    create_config_toml(
+        codex_home.path(),
+        &server.uri(),
+        "never",
+        &BTreeMap::from([(Feature::NetworkProxy, true)]),
+    )?;
+    std::fs::write(
+        codex_home.path().join("requirements.toml"),
+        r#"
+default_permissions = "managed-network"
+
+[allowed_permission_profiles]
+managed-network = true
+":read-only" = true
+
+[permissions.managed-network]
+extends = ":read-only"
+
+[permissions.managed-network.network]
+enabled = true
+allow_local_binding = false
+
+[permissions.managed-network.network.domains]
+"packages.example" = "allow"
+"#,
+    )?;
+
+    let mut app_server = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
+    timeout(DEFAULT_READ_TIMEOUT, app_server.initialize()).await??;
+
+    let thread_req = app_server
+        .send_thread_start_request_with_auto_env(ThreadStartParams {
+            model: Some("mock-model".to_string()),
+            ..Default::default()
+        })
+        .await?;
+    let thread_resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        app_server.read_stream_until_response_message(RequestId::Integer(thread_req)),
+    )
+    .await??;
+    let ThreadStartResponse {
+        thread,
+        active_permission_profile,
+        ..
+    } = to_response::<ThreadStartResponse>(thread_resp)?;
+    let active_permission_profile =
+        active_permission_profile.context("expected active permission profile")?;
+    assert_eq!(active_permission_profile.id, "managed-network");
+
+    let turn_req = app_server
+        .send_turn_start_request(TurnStartParams {
+            thread_id: thread.id,
+            client_user_message_id: None,
+            input: vec![V2UserInput::Text {
+                text: "Use the managed network profile".to_string(),
+                text_elements: Vec::new(),
+            }],
+            permissions: Some("managed-network".to_string()),
+            ..Default::default()
+        })
+        .await?;
+    let turn_resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        app_server.read_stream_until_response_message(RequestId::Integer(turn_req)),
+    )
+    .await??;
+    let TurnStartResponse { turn } = to_response::<TurnStartResponse>(turn_resp)?;
+    assert!(
+        !turn.id.is_empty(),
+        "turn/start should resolve the managed profile's network configuration"
+    );
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        app_server.read_stream_until_notification_message("turn/completed"),
+    )
+    .await??;
 
     Ok(())
 }
@@ -2287,6 +2478,31 @@ async fn turn_start_exec_approval_toggle_v2() -> Result<()> {
 
 #[tokio::test]
 async fn turn_start_exec_approval_decline_v2() -> Result<()> {
+    run_turn_start_exec_approval_rejection_v2(
+        serde_json::to_value(CommandExecutionRequestApprovalResponse {
+            decision: CommandExecutionApprovalDecision::Decline,
+        })?,
+        CommandExecutionStatus::Declined,
+        "rejected by user",
+    )
+    .await
+}
+
+#[tokio::test]
+async fn turn_start_exec_approval_invalid_response_v2() -> Result<()> {
+    run_turn_start_exec_approval_rejection_v2(
+        json!({ "unexpected": "response" }),
+        CommandExecutionStatus::Failed,
+        "approval request failed",
+    )
+    .await
+}
+
+async fn run_turn_start_exec_approval_rejection_v2(
+    approval_response: Value,
+    expected_status: CommandExecutionStatus,
+    expected_rejection: &str,
+) -> Result<()> {
     // TODO(anp): Remove after command approval routing accepts target-native Windows cwd.
     skip_if_wine_exec!(
         Ok(()),
@@ -2386,13 +2602,7 @@ async fn turn_start_exec_approval_decline_v2() -> Result<()> {
     assert_eq!(params.thread_id, thread.id);
     assert_eq!(params.turn_id, turn.id);
 
-    mcp.send_response(
-        request_id,
-        serde_json::to_value(CommandExecutionRequestApprovalResponse {
-            decision: CommandExecutionApprovalDecision::Decline,
-        })?,
-    )
-    .await?;
+    mcp.send_response(request_id, approval_response).await?;
 
     let completed_command_execution = timeout(DEFAULT_READ_TIMEOUT, async {
         loop {
@@ -2422,7 +2632,7 @@ async fn turn_start_exec_approval_decline_v2() -> Result<()> {
         unreachable!("loop ensures we break on command execution items");
     };
     assert_eq!(id, "call-decline");
-    assert_eq!(status, CommandExecutionStatus::Declined);
+    assert_eq!(status, expected_status);
     assert!(exit_code.is_none());
     assert!(aggregated_output.is_none());
 
@@ -2431,6 +2641,17 @@ async fn turn_start_exec_approval_decline_v2() -> Result<()> {
         mcp.read_stream_until_notification_message("turn/completed"),
     )
     .await??;
+
+    let requests = server
+        .received_requests()
+        .await
+        .context("failed to fetch received requests")?;
+    assert!(
+        requests.iter().any(|request| {
+            request.url.path().ends_with("/responses") && body_contains(request, expected_rejection)
+        }),
+        "model request should include approval rejection: {expected_rejection}"
+    );
 
     Ok(())
 }
@@ -4154,6 +4375,28 @@ async fn turn_start_file_change_approval_accept_for_session_persists_v2() -> Res
 
 #[tokio::test]
 async fn turn_start_file_change_approval_decline_v2() -> Result<()> {
+    run_turn_start_file_change_approval_rejection_v2(
+        serde_json::to_value(FileChangeRequestApprovalResponse {
+            decision: FileChangeApprovalDecision::Decline,
+        })?,
+        "rejected by user",
+    )
+    .await
+}
+
+#[tokio::test]
+async fn turn_start_file_change_approval_invalid_response_v2() -> Result<()> {
+    run_turn_start_file_change_approval_rejection_v2(
+        json!({ "unexpected": "response" }),
+        "approval request failed",
+    )
+    .await
+}
+
+async fn run_turn_start_file_change_approval_rejection_v2(
+    approval_response: Value,
+    expected_rejection: &str,
+) -> Result<()> {
     // TODO(anp): Materialize apply-patch workspaces in the selected remote environment.
     skip_if_remote!(
         Ok(()),
@@ -4270,13 +4513,7 @@ async fn turn_start_file_change_approval_decline_v2() -> Result<()> {
         }]
     );
 
-    mcp.send_response(
-        request_id,
-        serde_json::to_value(FileChangeRequestApprovalResponse {
-            decision: FileChangeApprovalDecision::Decline,
-        })?,
-    )
-    .await?;
+    mcp.send_response(request_id, approval_response).await?;
 
     let completed_file_change = timeout(DEFAULT_READ_TIMEOUT, async {
         loop {
@@ -4306,6 +4543,17 @@ async fn turn_start_file_change_approval_decline_v2() -> Result<()> {
         mcp.read_stream_until_notification_message("turn/completed"),
     )
     .await??;
+
+    let requests = server
+        .received_requests()
+        .await
+        .context("failed to fetch received requests")?;
+    assert!(
+        requests.iter().any(|request| {
+            request.url.path().ends_with("/responses") && body_contains(request, expected_rejection)
+        }),
+        "model request should include approval rejection: {expected_rejection}"
+    );
 
     assert!(
         !expected_readme_path.exists(),
