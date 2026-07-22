@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Extension 3 · Reactive blackboard</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="extension-2-recursive-workflows.html">← Recursive workflows</a
+      ><a href="extensions.html">Extensions</a
+      ><a href="extension-4-capability-market.html">Next: Capability market →</a>
+    </nav>
+    <h1>Extension 3 · Reactive blackboard</h1>
+    <p class="lede">
+      Represent emerging work as typed needs, artifacts, and decisions instead of forcing every long
+      mission into a predeclared sequence.
+    </p>
+
+    <h2>PR contract</h2>
+    <table>
+      <tbody>
+        <tr>
+          <th>Proposed title</th>
+          <td>workflow: add a bounded append-only mission board</td>
+        </tr>
+        <tr>
+          <th>Depends on</th>
+          <td>Baseline phases 2 and 4 plus trace replay proven across restart.</td>
+        </tr>
+        <tr>
+          <th>Decision</th>
+          <td>
+            Does shared typed state improve adaptation without weakening root scheduling authority?
+          </td>
+        </tr>
+        <tr>
+          <th>Rollout</th>
+          <td>Publish and query only; board contents never trigger work in this PR.</td>
+        </tr>
+        <tr>
+          <th>Rollback</th>
+          <td>Remove board tools from new workflows; retain entries as inert rollout evidence.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>First PR</h2>
+    <p class="gate">
+      Add a bounded append-only board that workflows can publish to and query. The root workflow
+      remains the sole scheduler; the board does not autonomously invoke workers.
+    </p>
+    <pre><code>BoardEntry = Need | Artifact | Decision | Blocker
+
+workflow.board.publish(entry) → { sequence, hash }
+workflow.board.query({ kind, status, after_sequence, limit })
+workflow.board.resolve(need_id, artifact_ids) → BoardEntry</code></pre>
+
+    <h2>Implementation path</h2>
+    <ol>
+      <li>
+        Define bounded tagged entries with provenance, parent IDs, content hashes, and visibility.
+      </li>
+      <li>
+        Append entries to rollout trace; derive indexes rather than introducing a second database.
+      </li>
+      <li>Require compare-and-append sequence numbers for resolution and supersession.</li>
+      <li>Project only selected entries into context through the phase-4 fragment machinery.</li>
+      <li>Expose deterministic queries with hard entry and byte limits.</li>
+    </ol>
+
+    <h2>Exact touch points after baseline</h2>
+    <ul>
+      <li>
+        <code>codex-rs/core/src/workflow/blackboard.rs</code> — new entry and transition owner.
+      </li>
+      <li>
+        <code>codex-rs/core/src/context/workflow_projection.rs</code> — bounded board projection.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/model/runtime.rs"
+          ><code>codex-rs/rollout-trace/src/model/runtime.rs</code></a
+        >
+        — append-only persistence and replay.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/code-mode-protocol/src/description.rs"
+          ><code>codex-rs/code-mode-protocol/src/description.rs</code></a
+        >
+        — typed board declarations exposed to code mode.
+      </li>
+      <li><code>codex-rs/core/tests/suite/workflow_blackboard.rs</code> — integration coverage.</li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Trace replay produces byte-identical board state. Concurrent stale resolutions are rejected;
+      provenance survives context projection; query limits prevent a worker from recovering the
+      entire mission ledger through repeated unbounded reads.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> storage and projection only. No subscriptions, worker claiming,
+      autonomous scheduling, semantic search, garbage collection, or cross-run board.
+    </p>
+  </body>
+</html>

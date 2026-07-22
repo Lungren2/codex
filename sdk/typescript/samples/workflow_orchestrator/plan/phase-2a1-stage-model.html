@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 2A.1 · Stage model and replay</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-2a-trace-envelope.html">← Trace split</a><a href="index.html">Overview</a
+      ><a href="phase-2a2-stage-writer.html">Next: required writer →</a>
+    </nav>
+    <h1>Phase 2A.1 · Stage model and replay</h1>
+    <p class="lede">
+      Add the smallest authoritative data layer: bounded stage reservation and terminal events plus
+      pure reducer invariants. This PR performs no new file I/O.
+    </p>
+
+    <h2>Contract</h2>
+    <pre><code>StageResult {
+  run_id, stage_id, invocation_id, parent_invocation_id,
+  code_cell_id, attempt, reserved_at, started_at, finished_at,
+  deadline_at, status, effective_settings, evidence_refs, error
+}</code></pre>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Add <code>model/stage.rs</code>; bound every free-form identifier and error field at
+        construction or deserialization.
+      </li>
+      <li>Add reservation and terminal variants to <code>raw_event.rs</code>.</li>
+      <li>
+        Add <code>reducer/stage.rs</code> enforcing one reservation, one terminal result, immutable
+        identity/deadline/parent fields, monotonic attempts, and known evidence references.
+      </li>
+      <li>
+        Add a narrow guard in <code>writer.rs</code>: generic append APIs reject stage variants
+        until Phase 2A.2 provides the only typed producer.
+      </li>
+      <li>
+        Keep stage tests in <code>reducer/stage_tests.rs</code>; compare complete replayed
+        envelopes.
+      </li>
+      <li>
+        Preserve forward-reader compatibility: the new reader replays old bundles with empty stage
+        state. Do not claim that old binaries can read new stage-bearing bundles.
+      </li>
+    </ol>
+
+    <h2>Exact surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/model/stage.rs"
+          ><code>codex-rs/rollout-trace/src/model/stage.rs</code></a
+        >
+        — new bounded model.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/model/mod.rs"
+          ><code>codex-rs/rollout-trace/src/model/mod.rs</code></a
+        >
+        and
+        <a href="../../../../../codex-rs/rollout-trace/src/model/runtime.rs"
+          ><code>model/runtime.rs</code></a
+        >
+        — stage map and code-cell edge only.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/raw_event.rs"
+          ><code>codex-rs/rollout-trace/src/raw_event.rs</code></a
+        >
+        — raw event union.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/reducer/stage.rs"
+          ><code>codex-rs/rollout-trace/src/reducer/stage.rs</code></a
+        >
+        — pure replay.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/reducer/mod.rs"
+          ><code>codex-rs/rollout-trace/src/reducer/mod.rs</code></a
+        >
+        and
+        <a href="../../../../../codex-rs/rollout-trace/src/reducer/code_cell.rs"
+          ><code>reducer/code_cell.rs</code></a
+        >
+        — dispatch and code-cell linkage only.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/reducer/stage_tests.rs"
+          ><code>codex-rs/rollout-trace/src/reducer/stage_tests.rs</code></a
+        >
+        — invariant proof.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/writer.rs"
+          ><code>codex-rs/rollout-trace/src/writer.rs</code></a
+        >
+        — generic-append rejection guard only.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/lib.rs"
+          ><code>codex-rs/rollout-trace/src/lib.rs</code></a
+        >
+        — minimal model exports.
+      </li>
+    </ul>
+
+    <p class="gate">
+      Replay accepts a valid reservation/terminal pair and rejects duplicate identity, missing
+      prerequisites, changed deadline or parentage/settings/evidence, non-monotonic attempts,
+      unbounded fields, and a second terminal result. Oversized error text is deterministically
+      truncated so terminalization cannot be stranded. Generic writer append rejects both stage
+      variants. Target: under 500 complex production lines and under 800 total changed lines.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> no writable stage producer beyond the rejection guard, sync, default
+      trace, recovery, core, or code mode.
+    </p>
+  </body>
+</html>

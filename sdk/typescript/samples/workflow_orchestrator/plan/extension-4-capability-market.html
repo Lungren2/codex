@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Extension 4 · Capability market</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="extension-3-reactive-blackboard.html">← Reactive blackboard</a
+      ><a href="extensions.html">Extensions</a
+      ><a href="extension-5-portfolio-execution.html">Next: Portfolio execution →</a>
+    </nav>
+    <h1>Extension 4 · Capability market</h1>
+    <p class="lede">
+      Select an approach as deliberately as the baseline selects a model. Bounded proposers expose
+      different task shapes before the system funds implementation.
+    </p>
+
+    <h2>PR contract</h2>
+    <table>
+      <tbody>
+        <tr>
+          <th>Proposed title</th>
+          <td>workflow: select one approach from bounded typed proposals</td>
+        </tr>
+        <tr>
+          <th>Depends on</th>
+          <td>Baseline phases 1, 2, 4, and 5 with stable route evidence.</td>
+        </tr>
+        <tr>
+          <th>Decision</th>
+          <td>
+            Does proposal diversity improve implementation shape enough to justify its inference
+            cost?
+          </td>
+        </tr>
+        <tr>
+          <th>Rollout</th>
+          <td>Opt in per workflow; fixed-plan execution remains the default and control group.</td>
+        </tr>
+        <tr>
+          <th>Rollback</th>
+          <td>
+            Bypass proposal collection and execute the caller-provided plan through the baseline
+            kernel.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>First PR</h2>
+    <p class="gate">
+      Collect at most three read-only typed proposals, normalize them against host routing policy,
+      and select one with deterministic rules. The winner runs through the ordinary stage kernel.
+    </p>
+    <pre><code>ApproachProposal {
+  shape, assumptions, context_needed, capability_requirement,
+  estimated_invocations, user_value, risks, falsification_probe
+}
+
+routing.propose(request, { max_proposals: 3 })
+routing.selectProposal(proposals, policy_revision) → ProposalDecision</code></pre>
+
+    <h2>Implementation path</h2>
+    <ol>
+      <li>Reserve all proposal invocations before fan-out and use fresh bounded contexts.</li>
+      <li>Validate every proposal contract; invalid proposals consume their reservation.</li>
+      <li>
+        Reject proposals that exceed mission authority, deadline, or eligible capability lanes.
+      </li>
+      <li>
+        Rank capability fit and user value first, then expected execution cost as tie-breaker.
+      </li>
+      <li>Persist the winner, rejected alternatives, policy revision, and selection reason.</li>
+    </ol>
+
+    <h2>Exact touch points after baseline</h2>
+    <ul>
+      <li>
+        <code>codex-rs/core/src/workflow/proposals.rs</code> — new proposal contract and collector.
+      </li>
+      <li>
+        <code>codex-rs/core/src/workflow/routing.rs</code> — eligibility and deterministic
+        selection.
+      </li>
+      <li><code>codex-rs/core/src/workflow/invocation.rs</code> — bounded read-only fan-out.</li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/tools/parallel.rs"
+          ><code>codex-rs/core/src/tools/parallel.rs</code></a
+        >
+        — existing bounded parallel execution seam.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/model/runtime.rs"
+          ><code>codex-rs/rollout-trace/src/model/runtime.rs</code></a
+        >
+        — proposal and decision evidence.
+      </li>
+      <li><code>codex-rs/core/tests/suite/workflow_proposals.rs</code> — integration coverage.</li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Fixtures prove a cheaper proposal cannot beat a materially better capability fit, equivalent
+      proposals use cost only as tie-breaker, policy changes invalidate stale decisions, and the
+      selected proposal is carried into implementation without raw proposer transcripts.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> one proposal round and one winner. No negotiation, self-priced tokens,
+      automatic policy learning, reputation scores, or implementation during bidding.
+    </p>
+  </body>
+</html>

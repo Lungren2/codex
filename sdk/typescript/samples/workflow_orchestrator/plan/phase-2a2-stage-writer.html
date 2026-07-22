@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 2A.2 · Writer split</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-2a1-stage-model.html">← Model and replay</a><a href="index.html">Overview</a
+      ><a href="phase-2a2a-writer-state.html">Begin prerequisite state →</a>
+    </nav>
+    <h1>Phase 2A.2 · Required writer split</h1>
+    <p class="lede">
+      Run 06 proved the typed path but reached 1,160 changed lines after two functional repairs.
+      Separate proof of durable prerequisites from the only synced stage producer; neither PR may
+      weaken Phase 2A.1's generic-writer rejection guard.
+    </p>
+
+    <h2>Executable slices</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Slice</th>
+          <th>Single outcome</th>
+          <th>Hard boundary</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="phase-2a2a-writer-state.html">2A.2a · Prerequisite state</a></td>
+          <td>
+            A pure index proves source, ownership, evidence, and attempt prerequisites from synced
+            events.
+          </td>
+          <td>No stage event is emitted; generic append remains rejected.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-2a2b-synced-writer.html">2A.2b · Synced producer</a></td>
+          <td>One code-cell-bound API reserves and terminalizes durably or fails closed.</td>
+          <td>Consumes 2A.2a without changing replay schema or synthesizing lifecycle events.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Run 06 evidence retained</h2>
+    <ul>
+      <li>
+        Reservation before model-visible source materialization produced an unreplayable trace.
+      </li>
+      <li>Malformed inference ownership could incorrectly unlock a source.</li>
+      <li>
+        Write/flush/sync errors could leave bytes on disk while in-memory state allowed retry.
+      </li>
+      <li>A code-cell handle could substitute another cell's model-visible identity.</li>
+      <li>The repaired path was coherent, but 923 additions exceeded the review boundary.</li>
+    </ul>
+
+    <p class="gate">
+      Rebuild from the accepted Phase 2A.1 tree. Each slice receives its own baseline, functional
+      review, and quality review; together they preserve the run 06 repairs without one oversized
+      PR.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> run 06 is evidence only. Do not transplant its writer wholesale or
+      waive the size gate.
+    </p>
+  </body>
+</html>

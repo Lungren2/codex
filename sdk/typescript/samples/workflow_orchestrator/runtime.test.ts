@@ -7,8 +7,16 @@ import test from "node:test";
 
 import { jsonSchemaFor, reviewOutputSchema } from "./contracts.ts";
 import { anchorGitTree, captureGitTree, diffGitTrees, snapshotGit } from "./git.ts";
-import { maxSessionsForWorkflow, selectRoute, WorkflowRuntime } from "./runtime.ts";
+import {
+  exhaustedRecoveryOutput,
+  maxSessionsForWorkflow,
+  repairBudgetUsedForPhase,
+  selectPinnedPhaseIds,
+  selectRoute,
+  WorkflowRuntime,
+} from "./runtime.ts";
 import type { RoutingGuide } from "./runtime.ts";
+import { selectPhases } from "./phases.ts";
 import type { PhaseDefinition } from "./phases.ts";
 import { describeRunWorkspace, prepareRunWorktree } from "./worktree.ts";
 
@@ -54,9 +62,65 @@ const routing: RoutingGuide = {
   },
 };
 
+test("selectPhases applies an inclusive bounded range", () => {
+  assert.deepEqual(
+    selectPhases("phase-2a2b", "phase-2c").map((phase) => phase.id),
+    ["phase-2a2b", "phase-2a3", "phase-2b", "phase-2c"],
+  );
+  assert.throws(
+    () => selectPhases("phase-3", "phase-2c"),
+    /--through phase phase-2c precedes --from phase phase-3/,
+  );
+});
+
+test("resumed workflows can narrow execution without rewriting the pinned order", () => {
+  const pinned = ["phase-2a2a", "phase-2a2b", "phase-2a3", "phase-2b", "phase-2c", "phase-3"];
+  assert.deepEqual(selectPinnedPhaseIds(pinned, ["phase-2a2a"]), ["phase-2a2a"]);
+  assert.deepEqual(
+    selectPinnedPhaseIds(pinned, ["phase-2a2b", "phase-2a3", "phase-2b", "phase-2c"]),
+    ["phase-2a2b", "phase-2a3", "phase-2b", "phase-2c"],
+  );
+  assert.throws(
+    () => selectPinnedPhaseIds(pinned, ["phase-2a2a", "phase-2a3"]),
+    /not a contiguous selection/,
+  );
+});
+
 test("bounds and routing prefer the lane fit before escalation", () => {
   assert.equal(maxSessionsForWorkflow(8, 2), 72);
   assert.equal(selectRoute(routing, "implementation").profileId, "terra-high");
+});
+
+test("repair budget survives process resumes by deriving usage from the ledger", () => {
+  const attempts = [
+    { phaseId: "phase-1", role: "implementation" as const },
+    { phaseId: "phase-1", role: "journey_review" as const },
+    { phaseId: "phase-1", role: "repair" as const },
+    { phaseId: "phase-1", role: "implementation" as const },
+    { phaseId: "phase-2", role: "repair" as const },
+  ];
+
+  assert.equal(repairBudgetUsedForPhase(attempts, "phase-1"), 2);
+  assert.equal(repairBudgetUsedForPhase(attempts, "phase-2"), 0);
+});
+
+test("exhausted implementation recovery becomes a blocked phase handoff", () => {
+  const output = exhaustedRecoveryOutput({
+    phaseId: "phase-2a",
+    attemptId: "phase-2a:implementation:3",
+    status: "timed_out",
+    error: "The operation was aborted",
+  });
+
+  assert.deepEqual(output, {
+    status: "blocked",
+    summary: "phase-2a exhausted its bounded implementation recovery budget.",
+    decisions: [],
+    verification: [],
+    blockingIssue: "phase-2a:implementation:3 ended as timed_out: The operation was aborted",
+    handoff:
+      "phase-2a exhausted its bounded implementation recovery budget. phase-2a:implementation:3 ended as timed_out: The operation was aborted",
+  });
 });
 
 test("review transitions reject contradictory failure classes", () => {
@@ -98,6 +162,20 @@ test("phase evidence is a true tree-to-tree diff including untracked files", () 
   }
 });
 
+test("working tree snapshots preserve paths for unstaged and untracked files", () => {
+  const repoRoot = createTempRepo();
+  try {
+    fs.writeFileSync(path.join(repoRoot, "tracked.txt"), "after\n");
+    fs.writeFileSync(path.join(repoRoot, "untracked.txt"), "new\n");
+    const snapshot = snapshotGit(repoRoot);
+    assert.deepEqual(snapshot.changedFiles, ["tracked.txt", "untracked.txt"]);
+    assert.notEqual(snapshot.fileHashes["tracked.txt"], "missing");
+    assert.notEqual(snapshot.fileHashes["untracked.txt"], "missing");
+  } finally {
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("run identity cannot escape the isolated worktree root", () => {
   assert.throws(() => describeRunWorkspace("D:/repo", "D:/home", "../escape"), /runId/);
   const repoRoot = createTempRepo();
@@ -126,6 +204,36 @@ test("writable workflow workspace is isolated from the source checkout", () => {
     );
     fs.writeFileSync(path.join(workspace.workspaceRoot, "tracked.txt"), "worktree-only\n");
     assert.equal(fs.readFileSync(path.join(sourceRepoRoot, "tracked.txt"), "utf8"), "before\n");
+  } finally {
+    fs.rmSync(codexHome, { recursive: true, force: true });
+    fs.rmSync(sourceRepoRoot, { recursive: true, force: true });
+  }
+});
+
+test("a new workflow can start from an accepted tree instead of the source checkout", () => {
+  const sourceRepoRoot = createTempRepo();
+  const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), "codex-workflow-home-"));
+  try {
+    const acceptedTree = captureGitTree(sourceRepoRoot);
+    fs.writeFileSync(path.join(sourceRepoRoot, "tracked.txt"), "later source change\n");
+
+    const workspace = prepareRunWorktree(
+      describeRunWorkspace(sourceRepoRoot, codexHome, "accepted-tree-test", acceptedTree),
+    );
+
+    assert.equal(
+      fs
+        .readFileSync(path.join(workspace.workspaceRoot, "tracked.txt"), "utf8")
+        .replaceAll("\r\n", "\n"),
+      "before\n",
+    );
+    assert.equal(
+      execFileSync("git", ["rev-parse", "HEAD^{tree}"], {
+        cwd: workspace.workspaceRoot,
+        encoding: "utf8",
+      }).trim(),
+      acceptedTree,
+    );
   } finally {
     fs.rmSync(codexHome, { recursive: true, force: true });
     fs.rmSync(sourceRepoRoot, { recursive: true, force: true });

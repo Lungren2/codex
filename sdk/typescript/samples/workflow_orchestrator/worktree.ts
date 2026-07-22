@@ -10,12 +10,14 @@ export type RunWorkspace = {
   workspaceRoot: string;
   branchName: string;
   sourceRefName: string;
+  baseRef: string | null;
 };
 
 export function describeRunWorkspace(
   sourceRepoRoot: string,
   codexHome: string,
   runId: string,
+  baseRef: string | null = null,
 ): RunWorkspace {
   assertRunId(runId);
   const worktreesRoot = path.resolve(
@@ -35,6 +37,7 @@ export function describeRunWorkspace(
     workspaceRoot,
     branchName: `codex/workflow-${runId}`,
     sourceRefName: `refs/codex/workflow-sources/${runId}`,
+    baseRef,
   };
   validateGitNames(workspace);
   return workspace;
@@ -61,6 +64,7 @@ export function prepareRunWorktree(workspace: RunWorkspace): RunWorkspace {
     ) {
       throw new Error(`existing workflow workspace is not ${workspace.branchName}`);
     }
+    assertAnchoredBaseRef(workspace);
     return workspace;
   }
 
@@ -71,6 +75,7 @@ export function prepareRunWorktree(workspace: RunWorkspace): RunWorkspace {
       `workflow branch exists without its anchored source snapshot: ${workspace.branchName}`,
     );
   }
+  if (existingBranch) assertAnchoredBaseRef(workspace);
   const args = existingBranch
     ? ["worktree", "add", workspace.workspaceRoot, workspace.branchName]
     : [
@@ -112,7 +117,9 @@ function branchExists(repoRoot: string, branchName: string): boolean {
 }
 
 function createSourceSnapshotCommit(workspace: RunWorkspace): string {
-  const treeHash = captureGitTree(workspace.sourceRepoRoot);
+  const treeHash = workspace.baseRef
+    ? resolveTree(workspace.sourceRepoRoot, workspace.baseRef)
+    : captureGitTree(workspace.sourceRepoRoot);
   const identity = {
     ...process.env,
     GIT_AUTHOR_NAME: "Codex Workflow",
@@ -134,6 +141,21 @@ function createSourceSnapshotCommit(workspace: RunWorkspace): string {
   );
   git(workspace.sourceRepoRoot, ["update-ref", workspace.sourceRefName, commitHash]);
   return commitHash;
+}
+
+function assertAnchoredBaseRef(workspace: RunWorkspace): void {
+  if (!workspace.baseRef) return;
+  const requestedTree = resolveTree(workspace.sourceRepoRoot, workspace.baseRef);
+  const anchoredTree = resolveTree(workspace.sourceRepoRoot, workspace.sourceRefName);
+  if (requestedTree !== anchoredTree) {
+    throw new Error(
+      `existing workflow source does not match requested base ref ${workspace.baseRef}`,
+    );
+  }
+}
+
+function resolveTree(repoRoot: string, refName: string): string {
+  return git(repoRoot, ["rev-parse", "--verify", "--end-of-options", `${refName}^{tree}`]);
 }
 
 function validateGitNames(workspace: RunWorkspace): void {

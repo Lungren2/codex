@@ -23,6 +23,11 @@
   context: { mode: "fresh" | "all" | "last_n", turns? },
   model?, reasoning_effort?, service_tier?, output_schema?
 }) → { worker_id, thread_id, status, output, usage, effective_settings }</code></pre>
+    <p class="gate">
+      <code>context.mode: "all"</code> is a full-history fork: it inherits the parent model and
+      reasoning effort. Supplying either override must fail before worker creation; fresh and last-N
+      contexts may route independently.
+    </p>
 
     <h2>Implementation</h2>
     <ol>

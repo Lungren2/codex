@@ -80,6 +80,14 @@ type SessionResult = {
   finishedAt: string | null;
 };
 
+type ImplementationRun = {
+  attemptIds: string[];
+  result: SessionResult & { output: ImplementationOutput };
+  thread: Thread;
+  route: RouteDecision;
+  recoveries: number;
+};
+
 type PhaseResult = {
   phaseId: string;
   accepted: boolean;
@@ -247,23 +255,65 @@ export class WorkflowRuntime {
     const phaseBaseline = this.phaseBaseline(phase.id);
     const plan = this.state.planDocuments[phase.id]?.content;
     if (!plan) throw new Error(`phase document ${phase.id} was not pinned before execution`);
+    const priorAttemptEvidence = this.phaseAttemptProjection(phase.id);
 
-    let currentRoute = selectRoute(this.state.routingPolicy.guide, phase.implementationLane);
-    let currentThread = this.newThread(currentRoute, "workspace-write");
-    let currentImplementation = await this.runImplementation(
-      currentThread,
-      currentRoute,
-      phase,
-      plan,
-      "implementation",
-      "",
-    );
-    sessionIds.push(currentImplementation.id);
-    if (currentImplementation.output.status !== "completed") {
-      return phaseFailure(phase.id, sessionIds, currentImplementation.output.handoff);
+    const priorWritableAttempts = writableAttemptsForPhase(this.state.attempts, phase.id);
+    let repairs = repairBudgetUsedForPhase(this.state.attempts, phase.id);
+    if (repairs >= this.state.limits.maxRepairsPerPhase && this.hasUnresolvedReview(phase.id)) {
+      return phaseFailure(
+        phase.id,
+        sessionIds,
+        `phase repair budget exhausted (${repairs}/${this.state.limits.maxRepairsPerPhase})`,
+      );
     }
 
-    let repairs = 0;
+    const reusableImplementation = this.reusableImplementationAttempt(phase.id);
+    let currentRoute: RouteDecision;
+    let currentThread: Thread;
+    let currentImplementation: SessionResult & { output: ImplementationOutput };
+    let implementationRun: ImplementationRun;
+    if (reusableImplementation) {
+      currentRoute = reusableImplementation.route;
+      currentThread = this.resumeThread(
+        reusableImplementation.threadId,
+        currentRoute,
+        "workspace-write",
+      );
+      currentImplementation = reusableImplementation;
+      sessionIds.push(reusableImplementation.id);
+    } else {
+      if (priorWritableAttempts > 0) {
+        if (repairs >= this.state.limits.maxRepairsPerPhase) {
+          return phaseFailure(
+            phase.id,
+            sessionIds,
+            `phase repair budget exhausted (${repairs}/${this.state.limits.maxRepairsPerPhase})`,
+          );
+        }
+        repairs += 1;
+      }
+
+      currentRoute = selectRoute(this.state.routingPolicy.guide, phase.implementationLane);
+      currentThread = this.newThread(currentRoute, "workspace-write");
+      implementationRun = await this.runImplementationWithRecovery(
+        phase,
+        plan,
+        "implementation",
+        priorAttemptEvidence,
+        currentThread,
+        currentRoute,
+        this.state.limits.maxRepairsPerPhase - repairs,
+      );
+      currentImplementation = implementationRun.result;
+      currentThread = implementationRun.thread;
+      currentRoute = implementationRun.route;
+      sessionIds.push(...implementationRun.attemptIds);
+      if (currentImplementation.output.status !== "completed") {
+        return phaseFailure(phase.id, sessionIds, currentImplementation.output.handoff);
+      }
+
+      repairs += implementationRun.recoveries;
+    }
     while (true) {
       const journey = await this.runReview(
         phase,
@@ -290,15 +340,20 @@ export class WorkflowRuntime {
           currentRoute,
           journey.output,
         ));
-        currentImplementation = await this.runImplementation(
-          currentThread,
-          currentRoute,
+        implementationRun = await this.runImplementationWithRecovery(
           phase,
           plan,
           "repair",
           JSON.stringify(reviewProjection(journey.output)),
+          currentThread,
+          currentRoute,
+          this.state.limits.maxRepairsPerPhase - repairs,
         );
-        sessionIds.push(currentImplementation.id);
+        currentImplementation = implementationRun.result;
+        currentThread = implementationRun.thread;
+        currentRoute = implementationRun.route;
+        repairs += implementationRun.recoveries;
+        sessionIds.push(...implementationRun.attemptIds);
         if (currentImplementation.output.status !== "completed") {
           return phaseFailure(phase.id, sessionIds, currentImplementation.output.handoff);
         }
@@ -345,15 +400,20 @@ export class WorkflowRuntime {
         currentRoute,
         quality.output,
       ));
-      currentImplementation = await this.runImplementation(
-        currentThread,
-        currentRoute,
+      implementationRun = await this.runImplementationWithRecovery(
         phase,
         plan,
         "repair",
         JSON.stringify(reviewProjection(quality.output)),
+        currentThread,
+        currentRoute,
+        this.state.limits.maxRepairsPerPhase - repairs,
       );
-      sessionIds.push(currentImplementation.id);
+      currentImplementation = implementationRun.result;
+      currentThread = implementationRun.thread;
+      currentRoute = implementationRun.route;
+      repairs += implementationRun.recoveries;
+      sessionIds.push(...implementationRun.attemptIds);
       if (currentImplementation.output.status !== "completed") {
         return phaseFailure(phase.id, sessionIds, currentImplementation.output.handoff);
       }
@@ -369,8 +429,79 @@ export class WorkflowRuntime {
     role: "implementation" | "repair",
     findings: string,
   ): Promise<SessionResult & { output: ImplementationOutput }> {
-    const prompt = `${plan}\n\nPHASE OBJECTIVE\n${phase.objective}\n\nREQUIRED SURFACES\n${phase.requiredPaths.join("\n")}\n\nPRIOR ACCEPTED HANDOFFS\n${this.handoffProjection()}\n\nHOST ROUTE DECISION\n${JSON.stringify(route)}\n\nREPAIR FINDINGS\n${findings || "None."}\n\nImplement only this phase. Work depth-first, follow every applicable AGENTS.md, and do not spawn subagents. Preserve user changes. The mission is the working feature slice; use progress probes while building, then run repository-required formatting and focused tests after it lands. Return the contract only.`;
+    const prompt = `${plan}\n\nPHASE OBJECTIVE\n${phase.objective}\n\nREQUIRED SURFACES\n${phase.requiredPaths.join("\n")}\n\nPRIOR ACCEPTED HANDOFFS\n${this.handoffProjection()}\n\nHOST ROUTE DECISION\n${JSON.stringify(route)}\n\nPRIOR PHASE ATTEMPT EVIDENCE\n${findings || "None."}\n\nImplement only this phase. Work depth-first, follow every applicable AGENTS.md, and do not spawn subagents. Preserve user changes. The mission is the working feature slice; use progress probes while building, then run repository-required formatting and focused tests after it lands. Return the contract only.`;
     return this.runSession(phase.id, thread, route, role, prompt, implementationOutputSchema);
+  }
+
+  private async runImplementationWithRecovery(
+    phase: PhaseDefinition,
+    plan: string,
+    role: "implementation" | "repair",
+    findings: string,
+    initialThread: Thread,
+    initialRoute: RouteDecision,
+    maxRecoveries: number,
+  ): Promise<ImplementationRun> {
+    let thread = initialThread;
+    let route = initialRoute;
+    let recoveryFindings = findings;
+    const attemptIds: string[] = [];
+
+    for (let recoveries = 0; ; recoveries += 1) {
+      try {
+        const result = await this.runImplementation(
+          thread,
+          route,
+          phase,
+          plan,
+          role,
+          recoveryFindings,
+        );
+        attemptIds.push(result.id);
+        return { attemptIds, result, thread, route, recoveries };
+      } catch (error) {
+        const failedAttempt = this.state.attempts.at(-1);
+        if (
+          !failedAttempt ||
+          failedAttempt.phaseId !== phase.id ||
+          failedAttempt.role !== role ||
+          failedAttempt.status === "running"
+        ) {
+          throw error;
+        }
+        attemptIds.push(failedAttempt.id);
+        if (recoveries >= maxRecoveries) {
+          const output = exhaustedRecoveryOutput({
+            phaseId: phase.id,
+            attemptId: failedAttempt.id,
+            status: failedAttempt.status,
+            error: failedAttempt.error ?? errorMessage(error),
+          });
+          return {
+            attemptIds,
+            result: { ...failedAttempt, output },
+            thread,
+            route,
+            recoveries,
+          };
+        }
+
+        recoveryFindings = JSON.stringify({
+          priorFindings: recoveryFindings || null,
+          hostRecovery: {
+            failedAttempt: failedAttempt.id,
+            status: failedAttempt.status,
+            error: failedAttempt.error,
+            changedFiles: failedAttempt.gitAfter?.changedFiles ?? [],
+            diffStat: failedAttempt.gitAfter?.diffStat ?? "",
+            patchHash: failedAttempt.gitAfter?.patchHash ?? null,
+            instruction:
+              "Continue from the existing working tree. Inspect and preserve valid work, finish the phase, run only the required focused checks, and return the contract.",
+          },
+        });
+        thread = this.newThread(route, "workspace-write");
+      }
+    }
   }
 
   private async runReview(
@@ -450,6 +581,7 @@ export class WorkflowRuntime {
         throw new Error(`${role} modified the repository during a read-only session`);
       }
       attempt.status = "completed";
+      attempt.threadId = thread.id;
       attempt.output = output;
       attempt.usage = turn.usage;
       attempt.gitAfter = gitAfter;
@@ -463,6 +595,7 @@ export class WorkflowRuntime {
           ? "policy_violation"
           : "failed";
       attempt.error = errorMessage(error);
+      attempt.threadId = thread.id;
       attempt.gitAfter = trySnapshotGit(this.options.repoRoot);
       attempt.finishedAt = new Date().toISOString();
       this.persist();
@@ -496,6 +629,53 @@ export class WorkflowRuntime {
     });
   }
 
+  private resumeThread(
+    threadId: string,
+    route: RouteDecision,
+    sandboxMode: "read-only" | "workspace-write",
+  ): Thread {
+    return this.codex.resumeThread(threadId, {
+      model: route.model,
+      modelReasoningEffort: route.reasoningEffort,
+      sandboxMode,
+      approvalPolicy: "never",
+      workingDirectory: this.options.repoRoot,
+      skipGitRepoCheck: false,
+    });
+  }
+
+  private reusableImplementationAttempt(
+    phaseId: string,
+  ): (SessionResult & { output: ImplementationOutput; threadId: string }) | null {
+    const attempt = [...this.state.attempts]
+      .reverse()
+      .find(
+        (candidate) =>
+          candidate.phaseId === phaseId &&
+          (candidate.role === "implementation" || candidate.role === "repair") &&
+          candidate.status === "completed",
+      );
+    if (
+      !attempt?.output ||
+      "decision" in attempt.output ||
+      !attempt.threadId ||
+      !attempt.gitAfter ||
+      attempt.gitAfter.patchHash !== snapshotGit(this.options.repoRoot).patchHash
+    ) {
+      return null;
+    }
+    return { ...attempt, output: attempt.output, threadId: attempt.threadId };
+  }
+
+  private hasUnresolvedReview(phaseId: string): boolean {
+    const attempt = [...this.state.attempts]
+      .reverse()
+      .find((candidate) => candidate.phaseId === phaseId && candidate.status === "completed");
+    return Boolean(
+      attempt?.output && "decision" in attempt.output && attempt.output.decision !== "accepted",
+    );
+  }
+
   private phaseBaseline(phaseId: string): PhaseBaseline {
     const existing = this.state.phaseBaselines[phaseId];
     if (existing) return existing;
@@ -515,9 +695,12 @@ export class WorkflowRuntime {
 
   private pinPlanDocuments(phases: PhaseDefinition[]): PhaseDefinition[] {
     let changed = false;
+    const requestedPhaseIds = phases.map((phase) => phase.id);
     if (this.state.phaseOrder.length === 0) {
-      this.state.phaseOrder = phases.map((phase) => phase.id);
+      this.state.phaseOrder = requestedPhaseIds;
       changed = true;
+    } else {
+      selectPinnedPhaseIds(this.state.phaseOrder, requestedPhaseIds);
     }
     for (const phase of phases) {
       const existing = this.state.planDocuments[phase.id];
@@ -546,7 +729,7 @@ export class WorkflowRuntime {
       changed = true;
     }
     if (changed) this.persist();
-    return this.state.phaseOrder.map((phaseId) => {
+    return requestedPhaseIds.map((phaseId) => {
       const pinned = this.state.planDocuments[phaseId];
       if (!pinned) throw new Error(`missing pinned definition for phase ${phaseId}`);
       return pinned.definition;
@@ -582,6 +765,40 @@ export class WorkflowRuntime {
     );
   }
 
+  private phaseAttemptProjection(phaseId: string): string {
+    const projection = this.state.attempts
+      .filter((attempt) => attempt.phaseId === phaseId && attempt.status !== "running")
+      .slice(-4)
+      .map((attempt) => ({
+        id: attempt.id,
+        role: attempt.role,
+        status: attempt.status,
+        error: attempt.error,
+        output: attempt.output
+          ? "decision" in attempt.output
+            ? reviewProjection(attempt.output)
+            : implementationProjection(attempt.output)
+          : null,
+        gitAfter: attempt.gitAfter
+          ? {
+              changedFiles: attempt.gitAfter.changedFiles.slice(0, 40),
+              diffStat: attempt.gitAfter.diffStat.slice(0, 2_000),
+              patchHash: attempt.gitAfter.patchHash,
+            }
+          : null,
+      }));
+    while (
+      projection.length > 1 &&
+      JSON.stringify(projection).length > MAX_HANDOFF_PROJECTION_CHARS
+    ) {
+      projection.shift();
+    }
+    const serialized = JSON.stringify(projection);
+    return serialized.length <= MAX_HANDOFF_PROJECTION_CHARS
+      ? serialized
+      : serialized.slice(0, MAX_HANDOFF_PROJECTION_CHARS);
+  }
+
   private assertWithinBounds(): void {
     if (this.state.sessionsUsed >= this.state.limits.maxSessions) {
       throw new Error(`workflow exceeded ${this.state.limits.maxSessions} sessions`);
@@ -613,6 +830,46 @@ export class WorkflowRuntime {
 
 export function maxSessionsForWorkflow(phaseCount: number, maxRepairsPerPhase: number): number {
   return phaseCount * (3 + 3 * maxRepairsPerPhase);
+}
+
+export function selectPinnedPhaseIds(
+  pinnedPhaseOrder: string[],
+  requestedPhaseIds: string[],
+): string[] {
+  const firstPhaseId = requestedPhaseIds[0];
+  if (!firstPhaseId) throw new Error("a workflow run requires at least one phase");
+  if (pinnedPhaseOrder.length === 0) return requestedPhaseIds;
+  const startIndex = pinnedPhaseOrder.indexOf(firstPhaseId);
+  const pinnedSelection = pinnedPhaseOrder.slice(startIndex, startIndex + requestedPhaseIds.length);
+  if (startIndex < 0 || !sameStringArray(pinnedSelection, requestedPhaseIds)) {
+    throw new Error("requested phases are not a contiguous selection of the pinned phase order");
+  }
+  return requestedPhaseIds;
+}
+
+export function repairBudgetUsedForPhase(
+  attempts: Array<Pick<SessionResult, "phaseId" | "role">>,
+  phaseId: string,
+): number {
+  return Math.max(0, writableAttemptsForPhase(attempts, phaseId) - 1);
+}
+
+export function exhaustedRecoveryOutput(args: {
+  phaseId: string;
+  attemptId: string;
+  status: string;
+  error: string;
+}): ImplementationOutput {
+  const summary = `${args.phaseId} exhausted its bounded implementation recovery budget.`;
+  const detail = `${args.attemptId} ended as ${args.status}: ${args.error}`;
+  return {
+    status: "blocked",
+    summary,
+    decisions: [],
+    verification: [],
+    blockingIssue: detail,
+    handoff: `${summary} ${detail}`,
+  };
 }
 
 export function assertRoutingGuide(value: RoutingGuide): void {
@@ -739,6 +996,17 @@ function routeLaneIds(): RouteLaneId[] {
   return ["architecture", "implementation", "journeyReview", "codeQualityReview"];
 }
 
+function writableAttemptsForPhase(
+  attempts: Array<Pick<SessionResult, "phaseId" | "role">>,
+  phaseId: string,
+): number {
+  return attempts.filter(
+    (attempt) =>
+      attempt.phaseId === phaseId &&
+      (attempt.role === "implementation" || attempt.role === "repair"),
+  ).length;
+}
+
 function phaseFailure(phaseId: string, sessionIds: string[], handoff: string): PhaseResult {
   return {
     phaseId,
@@ -823,6 +1091,10 @@ function routingHash(routing: RoutingGuide): string {
 
 function phaseDefinitionHash(phase: PhaseDefinition): string {
   return createHash("sha256").update(JSON.stringify(phase)).digest("hex");
+}
+
+function sameStringArray(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function definedEnvironment(): Record<string, string> {

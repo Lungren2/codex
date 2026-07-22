@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 2A · Trace substrate split</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-2-stage-kernel.html">← Phase 2 split</a><a href="index.html">Overview</a
+      ><a href="phase-2a1-stage-model.html">Begin Phase 2A.1 →</a>
+    </nav>
+    <h1>Phase 2A · Trace substrate split</h1>
+    <p class="lede">
+      The first rebuild still coupled the event model, replay, writer transactions, provisioning,
+      and recovery. Three implementation attempts timed out after producing 1,072 tracked plus 476
+      relevant untracked additions; <code>writer.rs</code> alone grew by 756 lines. Land the same
+      outcome as four dependency-ordered PRs.
+    </p>
+
+    <h2>Executable slices</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Slice</th>
+          <th>Single outcome</th>
+          <th>Review boundary</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="phase-2a1-stage-model.html">2A.1 · Model and replay</a></td>
+          <td>Typed reservation/terminal events replay with strict invariants.</td>
+          <td>No file I/O, writer API, provisioning, or recovery.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-2a2-stage-writer.html">2A.2 · Required writer split</a></td>
+          <td>Two slices: durable prerequisite state, then the sole synced producer.</td>
+          <td>No rollout discovery, process recovery, or core integration.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-2a3-trace-recovery.html">2A.3 · Provision and recover</a></td>
+          <td>Normal rollouts provision traces; only an exclusive root restart recovers them.</td>
+          <td>No workflow worker lifecycle or code-mode resource bounds.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Each slice must stay below the repository's complex-change boundary, pass focused
+      <code>codex-rollout-trace</code> tests, and clear independent journey and quality review
+      before the next slice begins.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> <code>workflow-runtime-05</code> is evidence, not a source tree to
+      resume. <code>workflow-runtime-06</code> proved 2A.1 and rejected the oversized writer.
+      Rebuild each remaining slice from the latest accepted tree.
+    </p>
+  </body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Extension 2 · Recursive workflows</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="extension-1-task-capsules.html">← Task capsules</a
+      ><a href="extensions.html">Extensions</a
+      ><a href="extension-3-reactive-blackboard.html">Next: Reactive blackboard →</a>
+    </nav>
+    <h1>Extension 2 · Recursive workflow compiler</h1>
+    <p class="lede">
+      Let a running workflow delegate genuinely nested orchestration while the host preserves one
+      authority tree, one deadline, and one finite budget.
+    </p>
+
+    <h2>PR contract</h2>
+    <table>
+      <tbody>
+        <tr>
+          <th>Proposed title</th>
+          <td>workflow: execute one budget-inheriting child program</td>
+        </tr>
+        <tr>
+          <th>Depends on</th>
+          <td>Baseline phases 1–4 plus durable restart recovery; task capsules are optional.</td>
+        </tr>
+        <tr>
+          <th>Decision</th>
+          <td>Can depth-one delegation preserve authority, cancellation, and absolute budgets?</td>
+        </tr>
+        <tr>
+          <th>Rollout</th>
+          <td>
+            Child execution requires an explicit host capability and a parent budget reservation.
+          </td>
+        </tr>
+        <tr>
+          <th>Rollback</th>
+          <td>Disable child compilation; preserve parent and child traces as terminal evidence.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>First PR</h2>
+    <p class="gate">
+      Permit one parent workflow to compile and execute one child TypeScript workflow at depth one.
+      The child receives an explicit budget slice and a curated context projection.
+    </p>
+    <pre><code>workflow.child.run({
+  source, input, context, budget: {
+    max_invocations, max_runtime_ms, max_stored_bytes
+  }
+}) → ChildWorkflowResult</code></pre>
+
+    <h2>Implementation path</h2>
+    <ol>
+      <li>Reserve the child budget atomically from the parent's remaining bounds.</li>
+      <li>
+        Compile with the phase-3 compiler and persist source, JavaScript, map, and compiler hash.
+      </li>
+      <li>Create a child run ID linked to the parent invocation and original absolute deadline.</li>
+      <li>Reject child authority, context, or routing requests broader than the parent owns.</li>
+      <li>
+        Return only a bounded result projection; retain the full child trace outside model context.
+      </li>
+    </ol>
+
+    <h2>Exact touch points after baseline</h2>
+    <ul>
+      <li>
+        <code>codex-rs/core/src/workflow/child.rs</code> — new budget and authority derivation.
+      </li>
+      <li><code>codex-rs/core/src/workflow/invocation.rs</code> — parent-child lifecycle.</li>
+      <li><code>codex-rs/code-mode-protocol/src/typescript.rs</code> — child compile request.</li>
+      <li>
+        <a href="../../../../../codex-rs/code-mode/src/session_runtime/mod.rs"
+          ><code>codex-rs/code-mode/src/session_runtime/mod.rs</code></a
+        >
+        — nested isolate ownership and cancellation.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/code_cell.rs"
+          ><code>codex-rs/rollout-trace/src/code_cell.rs</code></a
+        >
+        — compiled child artifacts and ancestry.
+      </li>
+      <li><code>codex-rs/core/tests/suite/workflow_child.rs</code> — integration coverage.</li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Tests prove child reservations reduce the parent budget before compilation, cancellation
+      cascades downward, restart preserves ancestry and deadline, and attempts to exceed inherited
+      authority fail without starting inference.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> depth one, one active child, and no sibling concurrency. Do not add
+      unbounded recursion, dynamic imports, or child-created worktrees.
+    </p>
+  </body>
+</html>

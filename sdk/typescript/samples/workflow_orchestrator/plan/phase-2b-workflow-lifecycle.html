@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 2B · Workflow lifecycle</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-2a3-trace-recovery.html">← Trace recovery</a><a href="index.html">Overview</a
+      ><a href="phase-2c-runtime-bounds.html">Next: runtime bounds →</a>
+    </nav>
+    <h1>Phase 2B · Workflow lifecycle and durable parentage</h1>
+    <p class="lede">
+      Connect workflow workers to the accepted trace substrate. Every live terminal path must be
+      durable before bounded cleanup, and nested parentage must survive reload and process resume.
+    </p>
+
+    <h2>Single outcome</h2>
+    <pre><code>bounded workflow.run
+  → durable reservation
+  → worker terminal, cancel, timeout, invalid output, or failure
+  → durable terminal StageResult before bounded cleanup</code></pre>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Extract cohesive reservation, worker execution, terminalization, and cleanup components;
+        keep the orchestration function small enough to review.
+      </li>
+      <li>
+        Race cancellation and deadline against spawn, subscription, and execution. Persist
+        <code>Cancelled</code> or <code>TimedOut</code> when the signal wins, then bound interrupt
+        and cleanup independently.
+      </li>
+      <li>
+        Enforce a small <code>stage_id</code> byte limit before reservation and in the tool schema
+        so model-visible terminal metadata cannot violate context caps.
+      </li>
+      <li>
+        Persist the enclosing invocation identity in durable thread/session metadata. Restore it on
+        every worker resume/reload path and populate <code>parent_invocation_id</code> for nested
+        calls.
+      </li>
+      <li>
+        Reattach actual resumed child sessions to the root trace writer from Phase 2A; never open a
+        competing writer or enter the root-recovery path from child session construction.
+      </li>
+    </ol>
+
+    <h2>Exact surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/core/src/workflow/invocation.rs"
+          ><code>codex-rs/core/src/workflow/invocation.rs</code></a
+        >
+        — bounded stage lifecycle.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/agent/control.rs"
+          ><code>codex-rs/core/src/agent/control.rs</code></a
+        >
+        — durable worker metadata contract.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/agent/control/spawn.rs"
+          ><code>codex-rs/core/src/agent/control/spawn.rs</code></a
+        >
+        — initial spawn and resume reconstruction.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/src/agent/registry.rs"
+          ><code>codex-rs/core/src/agent/registry.rs</code></a
+        >
+        — live worker identity and writer attachment.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/tests/suite/workflow.rs"
+          ><code>codex-rs/core/tests/suite/workflow.rs</code></a
+        >
+        — live terminal and resume proof.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Table-driven integration coverage replays success, invalid output, cancellation, timeout,
+      worker failure, and persistence failure. A subprocess or lifecycle harness actually stops the
+      original runtime, resumes from disk, preserves the deadline, terminalizes the abandoned
+      attempt, increments the next attempt, and retains nested parentage after worker reload.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> use Phase 2A trace primitives as landed. Do not add code-mode resource
+      bounds, TypeScript compilation, routing policy, or app-server APIs.
+    </p>
+  </body>
+</html>

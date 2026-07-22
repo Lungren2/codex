@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Extension 1 · Task capsules</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="extensions.html">← Extensions</a><a href="index.html">Baseline</a
+      ><a href="extension-2-recursive-workflows.html">Next: Recursive workflows →</a>
+    </nav>
+    <h1>Extension 1 · Task capsules</h1>
+    <p class="lede">
+      Add Kimi-style mutable decomposition without making a TODO synonymous with a worker. The root
+      chooses whether each capsule executes inline, as one worker, or as a bounded workflow.
+    </p>
+
+    <h2>PR contract</h2>
+    <table>
+      <tbody>
+        <tr>
+          <th>Proposed title</th>
+          <td>workflow: persist sequential task capsules</td>
+        </tr>
+        <tr>
+          <th>Depends on</th>
+          <td>Baseline phases 1, 2, 4, and 5; full baseline smoke green.</td>
+        </tr>
+        <tr>
+          <th>Decision</th>
+          <td>
+            Can mutable decomposition remain deterministic without creating one workflow per TODO?
+          </td>
+        </tr>
+        <tr>
+          <th>Rollout</th>
+          <td>Experimental workflow API only; existing sequential programs remain unchanged.</td>
+        </tr>
+        <tr>
+          <th>Rollback</th>
+          <td>
+            Stop dispatching capsules; retain append-only trace entries for inspection and replay.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Execution vocabulary</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Concept</th>
+          <th>Owns</th>
+          <th>Must not imply</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>TODO / capsule</td>
+          <td>User-visible progress, dependencies, and acceptance evidence.</td>
+          <td>A new model invocation or context.</td>
+        </tr>
+        <tr>
+          <td>Workflow</td>
+          <td>An independently recoverable execution graph.</td>
+          <td>One workflow per TODO.</td>
+        </tr>
+        <tr>
+          <td>Session</td>
+          <td>Context continuity across related capsule work.</td>
+          <td>A policy or review boundary.</td>
+        </tr>
+        <tr>
+          <td>Stage</td>
+          <td>Authority, routing, evidence, and acceptance policy.</td>
+          <td>A fresh session when continuity is still valuable.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>First PR</h2>
+    <p class="gate">
+      Persist a dependency-aware capsule queue and execute one ready capsule sequentially through
+      the existing stage kernel. Queue mutation and execution both produce trace evidence.
+    </p>
+    <pre><code>TaskCapsule {
+  id, objective, dependencies, context_projection,
+  capability_requirement, acceptance_evidence,
+  budget, status, revision
+}
+
+TaskDispatch {
+  capsule_id, granularity, workflow_id, session_id,
+  continuity_lease, lineage, route, release_reason?
+}
+
+workflow.tasks.define(capsule)
+workflow.tasks.revise(id, expected_revision, patch)
+workflow.tasks.runNext() → StageResult</code></pre>
+
+    <h2>Continuity lease</h2>
+    <p>
+      The dispatcher may keep several dependent capsules in one session. It releases that lease only
+      when evidence favors a boundary: independent judgment is required, capability needs change,
+      parallel work becomes real, or the current context shows degradation.
+    </p>
+    <p>
+      Persist lineage as <code>continued</code>, <code>checkpointed</code>, <code>forked</code>,
+      <code>restarted</code>, or <code>independent_review</code>. Final evidence can then state what a
+      worker was allowed to remember rather than merely naming the worker.
+    </p>
+    <p>
+      Degradation is host-observable: repeated file reopening, repeated rejected approaches,
+      contradictory decisions, duplicate commands, scope growth without landed evidence, or
+      compaction near a sensitive decision. A model request to split is a claim, not sufficient
+      proof.
+    </p>
+
+    <h2>Implementation path</h2>
+    <ol>
+      <li>Validate unique IDs, acyclic dependencies, bounded fields, and optimistic revisions.</li>
+      <li>Persist queue changes in rollout trace before exposing the new queue state.</li>
+      <li>
+        Select only a dependency-ready capsule; resolve its context and route through phases 4–5.
+      </li>
+      <li>
+        Issue or renew a continuity lease, then map inline, worker, and workflow granularity to the
+        existing invocation paths.
+      </li>
+      <li>
+        Complete a capsule only from its terminal <code>StageResult</code>, never model prose.
+      </li>
+    </ol>
+
+    <h2>Exact touch points after baseline</h2>
+    <ul>
+      <li>
+        <code>codex-rs/core/src/workflow/task_capsule.rs</code> — new queue and transition owner.
+      </li>
+      <li>
+        <code>codex-rs/core/src/workflow/invocation.rs</code> — dispatch selected granularity.
+      </li>
+      <li>
+        <code>codex-rs/core/src/context/workflow_projection.rs</code> — resolve capsule context.
+      </li>
+      <li>
+        <code>codex-rs/core/src/workflow/routing.rs</code> — resolve capsule capability needs.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/model/runtime.rs"
+          ><code>codex-rs/rollout-trace/src/model/runtime.rs</code></a
+        >
+        — persist queue revisions and capsule parentage.
+      </li>
+      <li>
+        <code>codex-rs/core/tests/suite/workflow_task_capsules.rs</code> — integration coverage.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      A three-capsule fixture blocks unmet dependencies, rejects a cycle, resumes after restart, and
+      produces the same ready order from trace replay. Revising one pending capsule does not rewrite
+      completed history or reset its mission budget. Three dependent capsules can share one session;
+      an injected degradation signal releases the lease and records the next session boundary.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> sequential execution only. No swarm fan-out, recursive child workflows,
+      automatic decomposition, one-TODO-one-workflow policy, or UI task board in this PR.
+    </p>
+  </body>
+</html>

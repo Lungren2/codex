@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Post-baseline workflow extensions</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="index.html">← Baseline overview</a>
+      <a href="extension-1-task-capsules.html">Start: Task capsules →</a>
+    </nav>
+    <h1>Post-baseline workflow extensions</h1>
+    <p class="lede">
+      Five alternative composition models to evaluate only after the eight-phase workflow runtime
+      executes reliably. Each linked document defines one reviewable first PR, not a commitment to
+      its entire architecture.
+    </p>
+
+    <h2>Shared entry gate</h2>
+    <p class="gate">
+      Begin an extension only after workflow invocation, durable <code>StageResult</code>,
+      restricted TypeScript, bounded context, host routing, cancellation, and restart recovery work
+      end to end. A phase-1-through-8 smoke must finish without manual ledger repair.
+    </p>
+
+    <h2>Directions</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Brief</th>
+          <th>Use when</th>
+          <th>First PR proves</th>
+          <th>Do not choose first when</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="extension-1-task-capsules.html">1 · Task capsules</a></td>
+          <td>Plans must change during execution while every task remains auditable.</td>
+          <td>Mutable decomposition can remain deterministic and sequential.</td>
+          <td>A single coherent workflow already fits the mission.</td>
+        </tr>
+        <tr>
+          <td><a href="extension-2-recursive-workflows.html">2 · Recursive workflows</a></td>
+          <td>A task reveals nested orchestration only after work begins.</td>
+          <td>One child inherits finite authority, cancellation, and budget.</td>
+          <td>Depth and inherited budgets are not yet trustworthy.</td>
+        </tr>
+        <tr>
+          <td><a href="extension-3-reactive-blackboard.html">3 · Reactive blackboard</a></td>
+          <td>
+            The next action should emerge from typed unmet needs rather than a fixed sequence.
+          </td>
+          <td>Shared state can aid adaptation without becoming the scheduler.</td>
+          <td>Ownership and termination must remain immediately obvious.</td>
+        </tr>
+        <tr>
+          <td><a href="extension-4-capability-market.html">4 · Capability market</a></td>
+          <td>Approach selection is more uncertain than execution.</td>
+          <td>Bounded proposals improve approach choice enough to justify their cost.</td>
+          <td>The work is mechanical or the proposal cost rivals implementation.</td>
+        </tr>
+        <tr>
+          <td><a href="extension-5-portfolio-execution.html">5 · Portfolio execution</a></td>
+          <td>Two materially different implementations are worth comparing as real artifacts.</td>
+          <td>Journey evidence can select between isolated implementations.</td>
+          <td>The diff is routine or candidate isolation is unavailable.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Recommended experiment order</h2>
+    <ol>
+      <li>Task capsules: adds adaptive decomposition without replacing the stage kernel.</li>
+      <li>Capability market: improves approach selection using the existing router.</li>
+      <li>Portfolio execution: tests alternatives as artifacts under explicit isolation.</li>
+      <li>Recursive workflows: adds hierarchy after capsule budgets are measured.</li>
+      <li>Reactive blackboard: evaluate last because it changes the ownership model most.</li>
+    </ol>
+
+    <p class="gate stop">
+      <strong>Stop:</strong> do not combine two extension directions in their first PR. Compare each
+      experiment against the unchanged sequential TypeScript baseline.
+    </p>
+  </body>
+</html>

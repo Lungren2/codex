@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workflow runtime handoff · 2026-07-19</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="index.html">← Plan overview</a>
+      <a href="phase-2a2a-writer-state.html">Accepted 2A.2a</a>
+      <a href="phase-2a2b-synced-writer.html">Next: 2A.2b →</a>
+      <a href="extensions.html">Extensions</a>
+    </nav>
+
+    <h1>Workflow runtime handoff · 2026-07-19</h1>
+    <p class="lede">
+      Phase 2A.2a is accepted and frozen. Run 08 was intentionally interrupted during its first
+      2A.2b implementation session. No Phase 3 work started. Resume from the accepted tree, inspect
+      the partial worktree only as evidence, and stop again after Phase 2C.
+    </p>
+
+    <h2>Authoritative state</h2>
+    <table>
+      <tbody>
+        <tr>
+          <th>Accepted through</th>
+          <td>Phase 1, 2A.1, and 2A.2a.</td>
+        </tr>
+        <tr>
+          <th>Accepted tree</th>
+          <td><code>refs/codex/workflow-baselines/workflow-runtime-07/phase-2a2a</code></td>
+        </tr>
+        <tr>
+          <th>Accepted tree object</th>
+          <td><code>be4eb60a55661f31ef697fb148993bdfce4e8ce2</code></td>
+        </tr>
+        <tr>
+          <th>Pending</th>
+          <td>2A.2b → 2A.3 → 2B → 2C.</td>
+        </tr>
+        <tr>
+          <th>Hard stop</th>
+          <td>Do not begin Phase 3 in the continuation.</td>
+        </tr>
+        <tr>
+          <th>Active processes</th>
+          <td>None. The Run 08 process tree was stopped before this handoff.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Resume next week</h2>
+    <ol>
+      <li>
+        Read this page, <a href="index.html">the plan overview</a>, and repository instructions.
+      </li>
+      <li>
+        Treat the Run 08 worktree as unaccepted. Review or discard its partial 2A.2b changes; never
+        promote them solely because they exist.
+      </li>
+      <li>
+        Prefer a fresh bounded run from
+        <code>refs/codex/workflow-baselines/workflow-runtime-07/phase-2a2a</code>.
+      </li>
+      <li>
+        Execute only 2A.2b through 2C. Poll at phase boundaries or runtime limits, not every few
+        minutes.
+      </li>
+      <li>Freeze each accepted slice as a tree ref and preserve focused verification evidence.</li>
+    </ol>
+    <pre><code>D:\dev\codex-dev\bin\run-agent-workflow.ps1 \
+  --execute \
+  --run-id workflow-runtime-09 \
+  --base-ref refs/codex/workflow-baselines/workflow-runtime-07/phase-2a2a \
+  --from phase-2a2b \
+  --through phase-2c</code></pre>
+
+    <h2>Verification at the accepted boundary</h2>
+    <ul>
+      <li><code>just test -p codex-rollout-trace</code>: 72/72 tests passed.</li>
+      <li><code>just fix -p codex-rollout-trace</code>: passed.</li>
+      <li>Package-scoped Rust formatting: passed.</li>
+      <li><code>git diff --check</code> on the intended rollout-trace paths: passed.</li>
+      <li>Accepted 2A.2a slice: 795 added lines against the Phase 2A baseline.</li>
+      <li>
+        Full <code>just fmt</code> was attempted but could not complete on Windows because of path
+        length, unavailable Buildifier, and Ruff certificate/download failures.
+      </li>
+    </ul>
+
+    <h2>Important artifacts</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Artifact</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <a href="index.html"
+              ><code
+                >D:\dev\codex\sdk\typescript\samples\workflow_orchestrator\plan\index.html</code
+              ></a
+            >
+          </td>
+          <td>Linked phased plan and bootstrap contract.</td>
+        </tr>
+        <tr>
+          <td>
+            <a href="extensions.html"
+              ><code
+                >D:\dev\codex\sdk\typescript\samples\workflow_orchestrator\plan\extensions.html</code
+              ></a
+            >
+          </td>
+          <td>Kimi comparison and five post-baseline PR directions.</td>
+        </tr>
+        <tr>
+          <td>
+            <a href="extension-1-task-capsules.html"
+              ><code
+                >D:\dev\codex\sdk\typescript\samples\workflow_orchestrator\plan\extension-1-task-capsules.html</code
+              ></a
+            >
+          </td>
+          <td>TODO/workflow/session/stage split, continuity lease, and lineage evidence.</td>
+        </tr>
+        <tr>
+          <td>
+            <a href="../index.ts"
+              ><code>D:\dev\codex\sdk\typescript\samples\workflow_orchestrator\index.ts</code></a
+            >
+          </td>
+          <td>Bounded CLI entry point with <code>--from</code> and <code>--through</code>.</td>
+        </tr>
+        <tr>
+          <td>
+            <a href="../runtime.ts"
+              ><code>D:\dev\codex\sdk\typescript\samples\workflow_orchestrator\runtime.ts</code></a
+            >
+          </td>
+          <td>Session loop, ledgers, routing, repairs, and acceptance transitions.</td>
+        </tr>
+        <tr>
+          <td><code>D:\dev\codex-dev\workflow-routing.json</code></td>
+          <td>Host-owned capability routing guide.</td>
+        </tr>
+        <tr>
+          <td>
+            <code
+              >C:\Users\EthanO\.codex-dev\workflow-runs\agent-workflow-runtime\workflow-runtime-07.json</code
+            >
+          </td>
+          <td>
+            Completed 2A.2a model-loop ledger; final model review rejected before the local repair.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <code
+              >C:\Users\EthanO\.codex-dev\workflow-runs\agent-workflow-runtime\workflow-runtime-08.json</code
+            >
+          </td>
+          <td>Interrupted 2A.2b ledger; one implementation attempt remains marked running.</td>
+        </tr>
+        <tr>
+          <td>
+            <code
+              >C:\Users\EthanO\.codex-dev\workflow-runs\agent-workflow-runtime\worktrees\workflow-runtime-08</code
+            >
+          </td>
+          <td>Unaccepted partial 2A.2b worktree retained for inspection.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Lessons learned</h2>
+    <ul>
+      <li>
+        The product center is an agent-authored bounded TypeScript runtime, not improved V1/V2
+        subagent chat plumbing.
+      </li>
+      <li>
+        Reasoning effort, validation mode, and orchestration granularity are independent decisions.
+      </li>
+      <li>
+        TODOs describe visible progress; workflows own recoverability; sessions own continuity;
+        stages own policy.
+      </li>
+      <li>
+        Preserve continuity with a lease. Split only for observed degradation, capability change,
+        independence, or real parallelism.
+      </li>
+      <li>
+        Routing is host-owned. Workflows request capability lanes; cost is a tie-breaker after
+        capability and lane affinity.
+      </li>
+      <li>
+        Mission proof precedes journey review; journey review precedes code quality; merge gates
+        remain optional until landing.
+      </li>
+      <li>
+        Model contracts are claims. Host observations become authority only under a stage-specific
+        evidence policy.
+      </li>
+      <li>
+        Durable events still need referential integrity before their payloads may authorize
+        transitions.
+      </li>
+      <li>
+        Every intermediate phase must be enforceable. A promised guard in the next phase leaves a
+        real bypass now.
+      </li>
+      <li>
+        Context lineage records what was supplied, not what a model privately remembered or
+        considered.
+      </li>
+    </ul>
+
+    <h2>What went wrong</h2>
+    <ul>
+      <li>
+        The initial architecture overemphasized an external harness and companion review; both were
+        corrected, and <code>codex-review</code> is out of scope.
+      </li>
+      <li>
+        Phase 2A.2a consumed thirteen sessions because scope recovery and late independent findings
+        exhausted the original repair budget.
+      </li>
+      <li>
+        The first accepted-looking writer allowed terminal event ordering defects, partial
+        authorization from malformed responses, and basename payload substitution.
+      </li>
+      <li>
+        The final model review then found fabricated payload references could still become evidence.
+        A local repair moved validation before event append.
+      </li>
+      <li>
+        Run 07's ledger remains rejected even though the repaired tree is now independently
+        verified; the accepted tree ref is the authoritative continuation boundary.
+      </li>
+      <li>
+        The bootstrap runner needs a first-class operator-interruption result so a stopped session
+        does not remain marked <code>running</code>.
+      </li>
+      <li>
+        Status polling became too frequent. Future continuations should check terminal boundaries,
+        not narrate unchanged activity.
+      </li>
+      <li>
+        Full repository formatting is unreliable in this long Windows worktree; package-scoped
+        formatting is the proven fallback.
+      </li>
+    </ul>
+
+    <h2>Fresh-chat prompt</h2>
+    <pre><code>Continue the agent-authored TypeScript workflow-runtime plan from:
+D:\dev\codex\sdk\typescript\samples\workflow_orchestrator\plan\handoff-2026-07-19.html
+
+Read AGENTS.md and the linked plan before acting. The authoritative accepted boundary is:
+refs/codex/workflow-baselines/workflow-runtime-07/phase-2a2a
+
+Run 08 was intentionally interrupted during 2A.2b. Its ledger and worktree are evidence only;
+inspect them, but do not trust or promote their partial changes without verification. Continue only
+Phase 2A.2b, 2A.3, 2B, and 2C, then stop. Do not begin Phase 3 and do not use codex-review.
+Use the bounded TypeScript runner and existing tools, preserve strict file boundaries, prioritize
+feature depth, verify focused behavior, freeze accepted tree refs, and poll only at meaningful
+phase or runtime boundaries.</code></pre>
+
+    <p class="gate stop">
+      <strong>Pause state:</strong> no workflow process is running; no Run 08 changes are accepted;
+      the next safe base is the frozen 2A.2a tree.
+    </p>
+  </body>
+</html>

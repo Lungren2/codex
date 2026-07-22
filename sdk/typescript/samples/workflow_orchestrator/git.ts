@@ -33,7 +33,7 @@ function git(repoRoot: string, args: string[], env?: NodeJS.ProcessEnv): string 
     encoding: "utf8",
     env,
     stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+  }).trimEnd();
 }
 
 export function snapshotGit(repoRoot: string): GitSnapshot {

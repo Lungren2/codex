@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 2A.2a · Durable prerequisite state</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-2a2-stage-writer.html">← Writer split</a><a href="index.html">Overview</a
+      ><a href="phase-2a2b-synced-writer.html">Next: synced producer →</a>
+    </nav>
+    <h1>Phase 2A.2a · Durable prerequisite state</h1>
+    <p class="lede">
+      Build a pure index over already-synced trace events. It decides whether a proposed stage
+      request has a real code-cell source, valid thread/turn/inference ownership, durable evidence,
+      and an available attempt number. It cannot emit a stage event.
+    </p>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Keep request/outcome value types in <code>stage.rs</code>; do not expose
+        <code>StageTraceContext::reserve</code> yet.
+      </li>
+      <li>
+        Add <code>writer/state.rs</code> that observes an event only after the writer reports it
+        synced. Model the same thread, turn, inference, code-cell, source, and evidence ownership as
+        the reducer.
+      </li>
+      <li>
+        Keep code cells pending until a validated inference terminal event durably materializes the
+        matching model-visible custom-tool call.
+      </li>
+      <li>
+        Preflight reservation without consuming an attempt. Failed source, ownership, evidence, or
+        parent checks leave state unchanged; a later valid retry may reuse the attempt.
+      </li>
+      <li>Keep the generic writer guard from Phase 2A.1 unchanged.</li>
+    </ol>
+
+    <h2>Exact surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/stage.rs"
+          ><code>codex-rs/rollout-trace/src/stage.rs</code></a
+        >
+        — request/outcome values only.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/writer/state.rs"
+          ><code>codex-rs/rollout-trace/src/writer/state.rs</code></a
+        >
+        — private synced-fact index.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/writer.rs"
+          ><code>codex-rs/rollout-trace/src/writer.rs</code></a
+        >
+        — post-sync observation hook and rejection guard.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/writer_state_tests.rs"
+          ><code>codex-rs/rollout-trace/src/writer_state_tests.rs</code></a
+        >
+        — pure transition proof.
+      </li>
+    </ul>
+
+    <p class="gate">
+      A table covers valid materialization and rejects unknown/foreign thread, turn, inference,
+      code-cell, parent, source, and evidence. The exact order
+      <code>CodeCellStarted → preflight fail → InferenceCompleted → preflight succeeds</code>
+      retains attempt 1. Malformed inference ownership never unlocks a source. Target: under 500
+      complex production lines and under 800 total changed lines.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> no stage append, sync policy change, fault injection, code-cell public
+      bridge, provisioning, or recovery.
+    </p>
+  </body>
+</html>

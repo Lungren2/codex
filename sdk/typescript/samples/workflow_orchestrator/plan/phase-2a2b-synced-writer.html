@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 2A.2b · Required synced writer</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-2a2a-writer-state.html">← Prerequisite state</a
+      ><a href="index.html">Overview</a
+      ><a href="phase-2a3-trace-recovery.html">Next: provision and recover →</a>
+    </nav>
+    <h1>Phase 2A.2b · Required synced stage writer</h1>
+    <p class="lede">
+      Expose the only writable stage path. It is bound to the originating runtime code cell,
+      consults 2A.2a's prerequisite state, syncs required evidence and events, and becomes
+      permanently failed after any ambiguous event-log I/O error.
+    </p>
+
+    <h2>API</h2>
+    <pre><code>CodeCellTraceContext::stage_context() -&gt; StageTraceContext
+StageTraceContext::reserve(request) -&gt; Result&lt;StageReservation&gt;
+StageReservation::terminalize(outcome) -&gt; Result&lt;StageResult&gt;</code></pre>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Bind stage context to the runtime cell ID already owned by
+        <code>CodeCellTraceContext</code>; callers cannot substitute a model-visible call ID.
+      </li>
+      <li>
+        Under one writer mutex, preflight through 2A.2a, sync payload data, append the event, sync
+        the log, then commit writer state.
+      </li>
+      <li>
+        After any write/flush/sync error that may have transferred bytes, poison stage writes until
+        explicit reopen/reconciliation in Phase 2A.3.
+      </li>
+      <li>
+        Terminalize exactly once. A duplicate returns the first durable result and never appends
+        conflicting bytes.
+      </li>
+      <li>Use a private event-log seam for deterministic reserve and terminal fault injection.</li>
+    </ol>
+
+    <h2>Exact surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/stage.rs"
+          ><code>codex-rs/rollout-trace/src/stage.rs</code></a
+        >
+        — typed public handle.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/code_cell.rs"
+          ><code>codex-rs/rollout-trace/src/code_cell.rs</code></a
+        >
+        — identity-bound bridge.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/writer/stage.rs"
+          ><code>codex-rs/rollout-trace/src/writer/stage.rs</code></a
+        >
+        — private transactions.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/writer/event_log.rs"
+          ><code>codex-rs/rollout-trace/src/writer/event_log.rs</code></a
+        >
+        — sync and failure seam.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/writer.rs"
+          ><code>codex-rs/rollout-trace/src/writer.rs</code></a
+        >
+        — thin lock/I/O facade.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/writer_stage_tests.rs"
+          ><code>codex-rs/rollout-trace/src/writer_stage_tests.rs</code></a
+        >
+        — durable and fail-closed proof.
+      </li>
+    </ul>
+
+    <p class="gate">
+      Drop/reopen after every successful reserve and terminal replays the complete envelope. Missing
+      prerequisites consume no attempt. Injected post-write reserve and terminal failures make all
+      further stage writes fail closed without adding duplicates. Generic append stays rejected.
+      Target: under 500 complex production lines and under 800 total changed lines.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> no lifecycle synthesis, log recovery, default trace provisioning,
+      workflow cleanup, or core integration.
+    </p>
+  </body>
+</html>

@@ -10,20 +10,26 @@
     <nav>
       <a href="index.html">Overview</a>
       <a href="phase-1-worker-api.html">1 · Worker API</a>
-      <a href="phase-2-stage-kernel.html">2 · Stage kernel</a>
+      <a href="phase-2-stage-kernel.html">2 · Stage kernel split</a>
+      <a href="phase-2a-trace-envelope.html">2A · Trace split</a>
+      <a href="phase-2b-workflow-lifecycle.html">2B · Lifecycle</a>
+      <a href="phase-2c-runtime-bounds.html">2C · Bounds</a>
       <a href="phase-3-typescript-runtime.html">3 · TypeScript runtime</a>
       <a href="phase-4-context-projections.html">4 · Context</a>
       <a href="phase-5-capability-routing.html">5 · Routing</a>
       <a href="phase-6-intent-resolution.html">6 · Intent</a>
       <a href="phase-7-mission-verification.html">7 · Mission verification</a>
       <a href="phase-8-quality-landing.html">8 · Quality and landing</a>
+      <a href="extensions.html">Post-baseline extensions</a>
+      <a href="handoff-2026-07-19.html">Current handoff</a>
     </nav>
 
     <h1>Agent-authored TypeScript workflow runtime</h1>
     <p class="lede">
-      Build one product path in eight narrow increments: an agent writes a bounded TypeScript
-      program; Codex compiles and executes it; the program invokes workers under host-owned context,
-      routing, authority, and evidence.
+      Build one product path in eight product phases and thirteen independently reviewed
+      implementation slices: an agent writes a bounded TypeScript program; Codex compiles and
+      executes it; the program invokes workers under host-owned context, routing, authority, and
+      evidence.
     </p>
 
     <h2>Authority</h2>
@@ -48,9 +54,34 @@ StageResult records every attempted transition</code></pre>
           <td>Typed terminal result and cancellation work end to end.</td>
         </tr>
         <tr>
-          <td><a href="phase-2-stage-kernel.html">2</a></td>
-          <td>Every attempted invocation leaves one durable result envelope.</td>
-          <td>Bounds survive failure, cancellation, and process restart.</td>
+          <td><a href="phase-2a1-stage-model.html">2A.1</a></td>
+          <td>Bounded reservation and terminal events reduce under strict invariants.</td>
+          <td>Pure replay is complete without writer or recovery changes.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-2a2a-writer-state.html">2A.2a</a></td>
+          <td>A synced-fact index proves all stage prerequisites without emitting stages.</td>
+          <td>Malformed ownership never unlocks a source or consumes an attempt.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-2a2b-synced-writer.html">2A.2b</a></td>
+          <td>The sole code-cell-bound producer syncs required stage events.</td>
+          <td>Successful calls replay; ambiguous I/O fails closed.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-2a3-trace-recovery.html">2A.3</a></td>
+          <td>Normal rollouts provision traces and root restart owns recovery.</td>
+          <td>Child reload cannot recover live root or sibling stages.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-2b-workflow-lifecycle.html">2B</a></td>
+          <td>Workflow lifecycle terminalizes before cleanup and preserves nested parentage.</td>
+          <td>All live terminal and real restart paths replay with bounded metadata.</td>
+        </tr>
+        <tr>
+          <td><a href="phase-2c-runtime-bounds.html">2C</a></td>
+          <td>Code mode enforces every host-owned resource bound.</td>
+          <td>Each exact boundary and a real workflow violation are proven.</td>
         </tr>
         <tr>
           <td><a href="phase-3-typescript-runtime.html">3</a></td>
@@ -85,6 +116,44 @@ StageResult records every attempted transition</code></pre>
       </tbody>
     </table>
 
+    <h2>Post-baseline PR jump-offs</h2>
+    <p>
+      These are not additional baseline phases and are not executed by the bootstrap program. Once
+      phases 1–8 are reliable, each brief can seed an independent PR without changing the baseline
+      completion contract.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Direction</th>
+          <th>First PR boundary</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="extension-1-task-capsules.html">Task capsules</a></td>
+          <td>Durable mutable task queue; one capsule runs one bounded workflow.</td>
+        </tr>
+        <tr>
+          <td><a href="extension-2-recursive-workflows.html">Recursive workflows</a></td>
+          <td>One parent may create one budget-inheriting child workflow.</td>
+        </tr>
+        <tr>
+          <td><a href="extension-3-reactive-blackboard.html">Reactive blackboard</a></td>
+          <td>Bounded append-only needs and artifacts; no autonomous scheduler.</td>
+        </tr>
+        <tr>
+          <td><a href="extension-4-capability-market.html">Capability market</a></td>
+          <td>Collect at most three typed proposals and select one deterministically.</td>
+        </tr>
+        <tr>
+          <td><a href="extension-5-portfolio-execution.html">Portfolio execution</a></td>
+          <td>Run two isolated candidates and select one; no automatic merge.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p><a href="extensions.html">Compare prerequisites and choose an experiment →</a></p>
+
     <h2>Bootstrap program</h2>
     <p>
       Until these primitives are first class,
@@ -92,17 +161,23 @@ StageResult records every attempted transition</code></pre>
       loops current SDK sessions over these exact phase documents. It is a temporary executor, not
       the product API. It reserves every attempt before inference, retains the original deadline on
       resume, and closes abandoned attempts as interrupted. With two repairs allowed per phase, the
-      eight-phase worst-case path is explicitly capped at 72 sessions, 45 minutes each, and eight
-      elapsed hours from the first start. Writable sessions run in one isolated worktree under the
-      development Codex home, seeded from an anchored snapshot of the intended source working tree,
-      including untracked files; the shared checkout is never their workspace. The selected HTML
-      contents, complete phase definitions, execution order, and hashes are pinned in the run ledger
-      before the first session.
+      thirteen-slice worst-case path is explicitly capped at 117 sessions, 45 minutes each, and
+      eight elapsed hours from the first start. Writable sessions run in one isolated worktree under
+      the development Codex home, seeded from an anchored snapshot of the intended source working
+      tree, including untracked files; the shared checkout is never their workspace. The selected
+      HTML contents, complete phase definitions, execution order, and hashes are pinned in the run
+      ledger before the first session.
     </p>
     <pre><code>D:\dev\codex-dev\bin\run-agent-workflow.ps1
 
 # Begin or resume a bounded run
-D:\dev\codex-dev\bin\run-agent-workflow.ps1 --execute --run-id workflow-runtime-01</code></pre>
+D:\dev\codex-dev\bin\run-agent-workflow.ps1 --execute --run-id workflow-runtime-01
+
+# Rebuild a refined slice from a previously accepted tree
+pnpm ts-node-esm --files samples/workflow_orchestrator/index.ts --execute \
+  --run-id workflow-runtime-07 \
+  --base-ref refs/codex/workflow-baselines/workflow-runtime-06/phase-2a2 \
+  --from phase-2a2a</code></pre>
 
     <h2>Repository truth</h2>
     <ul>
@@ -133,8 +208,9 @@ D:\dev\codex-dev\bin\run-agent-workflow.ps1 --execute --run-id workflow-runtime-
     </ul>
 
     <p class="gate stop">
-      <strong>Deferred:</strong> visual workflow UI, automatic capability learning, generic DAG/DSL
-      authoring, distributed execution, automatic worktree merging, and automatic merge.
+      <strong>Deferred from the baseline:</strong> the linked extension experiments, visual workflow
+      UI, automatic capability learning, distributed execution, automatic worktree merging, and
+      automatic merge.
     </p>
   </body>
 </html>

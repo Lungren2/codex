@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Extension 5 · Portfolio execution</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="extension-4-capability-market.html">← Capability market</a
+      ><a href="extensions.html">Extensions</a><a href="index.html">Baseline overview →</a>
+    </nav>
+    <h1>Extension 5 · Portfolio execution</h1>
+    <p class="lede">
+      Turn alternatives into isolated artifacts. Two implementations follow the same mission and are
+      compared by journey evidence before either can become the selected result.
+    </p>
+
+    <h2>PR contract</h2>
+    <table>
+      <tbody>
+        <tr>
+          <th>Proposed title</th>
+          <td>workflow: compare two isolated implementation candidates</td>
+        </tr>
+        <tr>
+          <th>Depends on</th>
+          <td>Baseline phases 1, 2, 7, and 8 plus a host workspace provider.</td>
+        </tr>
+        <tr>
+          <th>Decision</th>
+          <td>
+            Do competing artifacts improve mission outcomes enough to pay for duplicate execution?
+          </td>
+        </tr>
+        <tr>
+          <th>Rollout</th>
+          <td>
+            Explicit high-value tasks only; both candidate budgets are reserved before work starts.
+          </td>
+        </tr>
+        <tr>
+          <th>Rollback</th>
+          <td>
+            Preserve both workspaces and evidence, select neither, and return control to the host.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>First PR</h2>
+    <p class="gate">
+      Run exactly two candidate workflows in host-provisioned isolated workspaces, freeze both
+      diffs, and produce a typed selection. Preserve the winner; discard neither workspace
+      automatically.
+    </p>
+    <pre><code>workflow.portfolio.run({
+  mission, candidates: [minimal_shape, reusable_shape],
+  selection: { journey, integration, complexity }
+}) → PortfolioResult {
+  candidate_results, evidence, selected_candidate, reason
+}</code></pre>
+
+    <h2>Implementation path</h2>
+    <ol>
+      <li>
+        Require two distinct, host-approved workspace roots derived from the same source tree.
+      </li>
+      <li>Reserve both candidate budgets and capture source-tree identities before inference.</li>
+      <li>
+        Run candidates independently with identical mission constraints and explicit approaches.
+      </li>
+      <li>Freeze Git diffs and journey evidence before starting the fresh selector invocation.</li>
+      <li>Record the selected candidate and rationale; leave application or merge to the host.</li>
+    </ol>
+
+    <h2>Exact touch points after baseline</h2>
+    <ul>
+      <li>
+        <code>codex-rs/core/src/workflow/portfolio.rs</code> — candidate lifecycle and selection.
+      </li>
+      <li>
+        <code>codex-rs/core/src/workflow/invocation.rs</code> — independent candidate invocations.
+      </li>
+      <li><code>codex-rs/core/src/workflow/validation.rs</code> — shared journey criteria.</li>
+      <li>
+        <a href="../worktree.ts"
+          ><code>sdk/typescript/samples/workflow_orchestrator/worktree.ts</code></a
+        >
+        — bootstrap isolation behavior to replace with a host workspace provider.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/git-utils/src/info.rs"
+          ><code>codex-rs/git-utils/src/info.rs:810</code></a
+        >
+        — existing repository and linked-worktree identity handling.
+      </li>
+      <li><code>codex-rs/core/tests/suite/workflow_portfolio.rs</code> — integration coverage.</li>
+      <li>
+        <code>D:\dev\codex-dev\bin\run-agent-workflow.ps1</code> — machine-local workspace provider.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      A fixture proves both candidates start from one tree, cannot observe or modify each other,
+      receive the same mission, and remain inspectable after selection. The selector cannot run
+      until both terminal results and frozen evidence exist.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> two candidates, one selector, no synthesis. Do not cherry-pick, merge,
+      rewrite, delete workspaces, or launch portfolio execution for routine mechanical work.
+    </p>
+  </body>
+</html>

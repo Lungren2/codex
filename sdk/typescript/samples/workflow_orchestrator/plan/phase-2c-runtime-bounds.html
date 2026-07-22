@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 2C · Code-mode runtime bounds</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-2b-workflow-lifecycle.html">← Workflow lifecycle</a
+      ><a href="index.html">Overview</a
+      ><a href="phase-3-typescript-runtime.html">Next: TypeScript runtime →</a>
+    </nav>
+    <h1>Phase 2C · Code-mode runtime bounds</h1>
+    <p class="lede">
+      Land host-owned isolate limits separately from stage durability. Isolate code may consume
+      authority but cannot widen it.
+    </p>
+
+    <h2>Single outcome</h2>
+    <pre><code>RuntimeBounds {
+  source_bytes, cells, concurrent_cells,
+  nested_calls, concurrent_nested_calls,
+  stored_bytes, returned_bytes, runtime_ms
+}</code></pre>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Define one host-owned <code>RuntimeBounds</code> value outside <code>ExecuteRequest</code>.
+        Apply defaults at session construction.
+      </li>
+      <li>
+        Enforce cumulative source bytes and cell count before admission; enforce concurrent cells
+        with permits released on every terminal path.
+      </li>
+      <li>
+        Enforce total and concurrent nested tool calls, stored bytes, returned bytes, and expiry of
+        an already-running cell.
+      </li>
+      <li>
+        Map bound failures into the Phase 2B terminal result without weakening or duplicating the
+        trace lifecycle.
+      </li>
+    </ol>
+
+    <h2>Exact surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/code-mode-protocol/src/runtime.rs"
+          ><code>codex-rs/code-mode-protocol/src/runtime.rs</code></a
+        >
+        — host-owned bound type and defaults.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/code-mode/src/session_runtime/mod.rs"
+          ><code>codex-rs/code-mode/src/session_runtime/mod.rs</code></a
+        >
+        — admission, permits, deadline, and byte accounting.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/code-mode/src/session_runtime/tests.rs"
+          ><code>codex-rs/code-mode/src/session_runtime/tests.rs</code></a
+        >
+        — table-driven boundary coverage.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/core/tests/suite/workflow.rs"
+          ><code>codex-rs/core/tests/suite/workflow.rs</code></a
+        >
+        — real workflow bound integration.
+      </li>
+    </ul>
+
+    <h2>Proof</h2>
+    <p class="gate">
+      Table-driven tests exercise the exact boundary and first rejected value for every field,
+      including concurrent cells, total and concurrent nested calls, and expiry while a cell is
+      running. A focused workflow integration test proves a bound violation reaches one durable
+      terminal result.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> no trace schema, recovery semantics, worker parentage, TypeScript
+      compilation, routing, or validation hierarchy in this slice.
+    </p>
+  </body>
+</html>

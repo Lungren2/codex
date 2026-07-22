@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 2A.3 · Trace provisioning and recovery</title>
+    <link rel="stylesheet" href="plan.css" />
+  </head>
+  <body>
+    <nav>
+      <a href="phase-2a2b-synced-writer.html">← Synced writer</a><a href="index.html">Overview</a
+      ><a href="phase-2b-workflow-lifecycle.html">Next: workflow lifecycle →</a>
+    </nav>
+    <h1>Phase 2A.3 · Default provisioning and exclusive recovery</h1>
+    <p class="lede">
+      Make the stage trace authoritative in ordinary persisted sessions and make recovery an
+      exclusive root-restart operation, never a child reload side effect.
+    </p>
+
+    <h2>Implementation</h2>
+    <ol>
+      <li>
+        Provision the bundle from the normal persisted rollout directory. Keep
+        <code>CODEX_ROLLOUT_TRACE_ROOT</code> only as an explicit override.
+      </li>
+      <li>Attach root and child threads to the same in-process writer.</li>
+      <li>
+        Add private reopen/lease state in <code>writer/reopen.rs</code>. Recovery proceeds only
+        after the prior writer lease is gone; derive root identity from the manifest and rollout
+        startup path rather than trusting a caller-supplied ID.
+      </li>
+      <li>
+        Terminalize only reservations proven abandoned; preserve identity, attempt, deadline, and
+        parentage. The next attempt remains monotonic.
+      </li>
+      <li>
+        Tolerate or truncate only a partial final JSONL record; never rewrite earlier durable
+        events. Exercise real close/reopen behavior in dedicated recovery tests.
+      </li>
+    </ol>
+
+    <h2>Exact surfaces</h2>
+    <ul>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/thread.rs"
+          ><code>codex-rs/rollout-trace/src/thread.rs</code></a
+        >
+        — default bundle and shared writer.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/recovery.rs"
+          ><code>codex-rs/rollout-trace/src/recovery.rs</code></a
+        >
+        — exclusive root recovery.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/writer/reopen.rs"
+          ><code>codex-rs/rollout-trace/src/writer/reopen.rs</code></a
+        >
+        — private lease and log reconstruction.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/thread_tests.rs"
+          ><code>codex-rs/rollout-trace/src/thread_tests.rs</code></a
+        >
+        — live child and restart proof.
+      </li>
+      <li>
+        <a href="../../../../../codex-rs/rollout-trace/src/recovery_tests.rs"
+          ><code>codex-rs/rollout-trace/src/recovery_tests.rs</code></a
+        >
+        — exclusive reopen and partial-tail proof.
+      </li>
+    </ul>
+
+    <p class="gate">
+      With no override, a persisted rollout gets an adjacent trace. While the original writer is
+      alive, another handle cannot reopen or mutate it. After a real close/reopen, recovery closes
+      only abandoned reservations, preserves immutable fields, and advances the next attempt. An
+      attached child sharing the writer cannot acquire the lease. Target: under 500 complex
+      production lines and under 800 total changed lines.
+    </p>
+    <p class="gate stop">
+      <strong>Stop:</strong> actual resumed-child session integration belongs to Phase 2B. No worker
+      cleanup, cancellation policy, code-mode bounds, TypeScript runtime, or app-server API.
+    </p>
+  </body>
+</html>

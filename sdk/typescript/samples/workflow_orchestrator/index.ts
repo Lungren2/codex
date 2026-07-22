@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { phases } from "./phases.ts";
+import { selectPhases } from "./phases.ts";
 import type { PhaseId } from "./phases.ts";
 import {
   assertRoutingGuide,
@@ -21,24 +21,20 @@ const defaultRepoRoot = path.resolve(scriptRoot, "../../../..");
 const args = parseArgs(process.argv.slice(2));
 const sourceRepoRoot = path.resolve(args.repo ?? defaultRepoRoot);
 const routingPath = args.routing ? path.resolve(args.routing) : null;
-const startIndex = args.from ? phases.findIndex((phase) => phase.id === args.from) : 0;
 
 if (!routingPath || !fs.existsSync(routingPath)) {
   throw new Error("--routing must name an existing host-owned routing JSON file");
 }
-if (startIndex < 0) {
-  throw new Error(`unknown --from phase: ${args.from}`);
-}
-const selectedPhases = phases.slice(startIndex);
+const selectedPhases = selectPhases(args.from, args.through);
 
 const routing = JSON.parse(fs.readFileSync(routingPath, "utf8")) as RoutingGuide;
 assertRoutingGuide(routing);
 const runId = args.runId ?? new Date().toISOString().replaceAll(/[:.]/g, "-");
 const codexHome = process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex");
 const stateFile = path.join(codexHome, "workflow-runs", "agent-workflow-runtime", `${runId}.json`);
-const workspace = describeRunWorkspace(sourceRepoRoot, codexHome, runId);
+const workspace = describeRunWorkspace(sourceRepoRoot, codexHome, runId, args.baseRef ?? null);
 const maxRepairsPerPhase = 2;
-const maxSessions = maxSessionsForWorkflow(phases.length, maxRepairsPerPhase);
+const maxSessions = maxSessionsForWorkflow(selectedPhases.length, maxRepairsPerPhase);
 const maxSessionMs = 45 * 60 * 1_000;
 const maxRunMs = 8 * 60 * 60 * 1_000;
 
@@ -90,7 +86,9 @@ type CliArgs = {
   repo?: string;
   routing?: string;
   runId?: string;
+  baseRef?: string;
   from?: PhaseId;
+  through?: PhaseId;
 };
 
 function parseArgs(values: string[]): CliArgs {
@@ -101,14 +99,23 @@ function parseArgs(values: string[]): CliArgs {
       parsed.execute = true;
       continue;
     }
-    if (value === "--repo" || value === "--routing" || value === "--run-id" || value === "--from") {
+    if (
+      value === "--repo" ||
+      value === "--routing" ||
+      value === "--run-id" ||
+      value === "--base-ref" ||
+      value === "--from" ||
+      value === "--through"
+    ) {
       const argument = values[index + 1];
       if (!argument) throw new Error(`${value} requires a value`);
       index += 1;
       if (value === "--repo") parsed.repo = argument;
       if (value === "--routing") parsed.routing = argument;
       if (value === "--run-id") parsed.runId = argument;
+      if (value === "--base-ref") parsed.baseRef = argument;
       if (value === "--from") parsed.from = argument as PhaseId;
+      if (value === "--through") parsed.through = argument as PhaseId;
       continue;
     }
     throw new Error(`unknown argument: ${value}`);
