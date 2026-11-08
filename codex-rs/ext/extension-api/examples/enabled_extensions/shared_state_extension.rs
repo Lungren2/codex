@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
+use codex_extension_api::ContentItemKind;
 use codex_extension_api::ContextContributor;
 use codex_extension_api::ExtensionData;
 use codex_extension_api::ExtensionRegistryBuilder;
@@ -21,7 +22,6 @@ impl ContextContributor for StyleContributor {
         &'a self,
         session_store: &'a ExtensionData,
         thread_store: &'a ExtensionData,
-        _step_store: &'a ExtensionData,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Vec<PromptFragment>> + Send + 'a>> {
         Box::pin(async move {
             contribution_counts(session_store).record_style();
@@ -29,6 +29,7 @@ impl ContextContributor for StyleContributor {
 
             vec![PromptFragment::developer_policy(
                 "Prefer short answers unless the user asks for detail.",
+                ContentItemKind("example.style_instructions".to_string()),
             )]
         })
     }
@@ -42,7 +43,6 @@ impl ContextContributor for UsageContributor {
         &'a self,
         session_store: &'a ExtensionData,
         thread_store: &'a ExtensionData,
-        _step_store: &'a ExtensionData,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Vec<PromptFragment>> + Send + 'a>> {
         Box::pin(async move {
             contribution_counts(session_store).record_usage();
@@ -50,6 +50,7 @@ impl ContextContributor for UsageContributor {
 
             vec![PromptFragment::developer_capability(
                 "This extension can contribute more than one prompt fragment.",
+                ContentItemKind("example.usage_instructions".to_string()),
             )]
         })
     }

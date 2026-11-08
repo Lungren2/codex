@@ -6,11 +6,13 @@ use crate::model::CodeCellRuntimeStatus;
 use crate::model::ConversationItemKind;
 use crate::model::ExecutionStatus;
 use crate::model::ProducerRef;
+use crate::model::RolloutStatus;
 use crate::model::ToolCallKind;
 use crate::model::ToolCallSummary;
 use crate::payload::RawPayloadKind;
 use crate::raw_event::RawToolCallRequester;
 use crate::raw_event::RawTraceEventPayload;
+use crate::reducer::test_support::append_inference_request;
 use crate::reducer::test_support::create_started_writer;
 use crate::reducer::test_support::message;
 use crate::reducer::test_support::start_turn;
@@ -69,12 +71,20 @@ fn code_cell_lifecycle_links_nested_tools_waits_and_outputs() -> anyhow::Result<
         upstream_request_id: None,
         response_payload: response,
     })?;
+    let initial_response = writer.write_json_payload(
+        RawPayloadKind::ToolResult,
+        &json!({"response": "initial caller result"}),
+    )?;
+    let final_response = writer.write_json_payload(
+        RawPayloadKind::ToolResult,
+        &json!({"response": "later runtime result"}),
+    )?;
     writer.append_with_context(
         trace_context("turn-1"),
         RawTraceEventPayload::CodeCellInitialResponse {
             runtime_cell_id: "1".to_string(),
             status: CodeCellRuntimeStatus::Yielded,
-            response_payload: None,
+            response_payload: Some(initial_response.clone()),
         },
     )?;
     writer.append_with_context(
@@ -160,7 +170,7 @@ fn code_cell_lifecycle_links_nested_tools_waits_and_outputs() -> anyhow::Result<
         RawTraceEventPayload::CodeCellEnded {
             runtime_cell_id: "1".to_string(),
             status: CodeCellRuntimeStatus::Completed,
-            response_payload: None,
+            response_payload: Some(final_response.clone()),
         },
     )?;
 
@@ -172,6 +182,18 @@ fn code_cell_lifecycle_links_nested_tools_waits_and_outputs() -> anyhow::Result<
         .last()
         .expect("exec output item");
 
+    assert_eq!(
+        (
+            &cell.initial_response_status,
+            &cell.raw_initial_response_payload_id,
+            &cell.raw_result_payload_id,
+        ),
+        (
+            &Some(CodeCellRuntimeStatus::Yielded),
+            &Some(initial_response.raw_payload_id),
+            &Some(final_response.raw_payload_id),
+        )
+    );
     assert_eq!(cell.thread_id, "thread-root");
     assert_eq!(cell.runtime_status, CodeCellRuntimeStatus::Completed);
     assert_eq!(cell.execution.status, ExecutionStatus::Completed);
@@ -199,22 +221,17 @@ fn fast_code_cell_lifecycle_waits_for_source_item() -> anyhow::Result<()> {
     let writer = create_started_writer(&temp)?;
     start_turn(&writer, "turn-1")?;
 
-    let request = writer.write_json_payload(
-        RawPayloadKind::InferenceRequest,
-        &json!({
-            "input": [message("user", "count files")]
-        }),
+    // Put outputs on either side of ordinal 10, where map-key order differs from history order.
+    let mut input: Vec<_> = (0..7)
+        .map(|index| message("user", &format!("context {index}")))
+        .collect();
+    append_inference_request(
+        &writer,
+        "thread-root",
+        "turn-1",
+        "inference-1",
+        input.clone(),
     )?;
-    writer.append(RawTraceEventPayload::InferenceStarted {
-        inference_call_id: "inference-1".to_string(),
-        thread_id: "thread-root".to_string(),
-        codex_turn_id: "turn-1".to_string(),
-        model: "gpt-test".to_string(),
-        provider_name: "test-provider".to_string(),
-        prompt_assembly_payload: None,
-        wire_request_payload: None,
-        request_payload: request,
-    })?;
     writer.append_with_context(
         trace_context("turn-1"),
         RawTraceEventPayload::CodeCellStarted {
@@ -223,12 +240,20 @@ fn fast_code_cell_lifecycle_waits_for_source_item() -> anyhow::Result<()> {
             source_js: "not valid js".to_string(),
         },
     )?;
+    let initial_response = writer.write_json_payload(
+        RawPayloadKind::ToolResult,
+        &json!({"response": "initial caller result"}),
+    )?;
+    let final_response = writer.write_json_payload(
+        RawPayloadKind::ToolResult,
+        &json!({"response": "later runtime result"}),
+    )?;
     writer.append_with_context(
         trace_context("turn-1"),
         RawTraceEventPayload::CodeCellInitialResponse {
             runtime_cell_id: "1".to_string(),
             status: CodeCellRuntimeStatus::Failed,
-            response_payload: None,
+            response_payload: Some(initial_response.clone()),
         },
     )?;
     writer.append_with_context(
@@ -236,19 +261,42 @@ fn fast_code_cell_lifecycle_waits_for_source_item() -> anyhow::Result<()> {
         RawTraceEventPayload::CodeCellEnded {
             runtime_cell_id: "1".to_string(),
             status: CodeCellRuntimeStatus::Failed,
-            response_payload: None,
+            response_payload: Some(final_response.clone()),
+        },
+    )?;
+    let call = json!({
+        "type": "custom_tool_call",
+        "name": "exec",
+        "call_id": "call-code",
+        "input": "not valid js"
+    });
+    // Compaction exposes the source and original output before the response is recorded.
+    // Its replacement output must be appended before the queued cell is materialized.
+    input.push(call.clone());
+    input.push(json!({
+        "type": "custom_tool_call_output", "call_id": "call-code", "output": "initial caller result"
+    }));
+    let checkpoint = writer.write_json_payload(
+        RawPayloadKind::CompactionCheckpoint,
+        &json!({
+            "input_history": input,
+            "replacement_history": [call, {
+                "type": "custom_tool_call_output", "call_id": "call-code", "output": "later runtime result"
+            }]
+        }),
+    )?;
+    writer.append_with_context(
+        trace_context("turn-1"),
+        RawTraceEventPayload::CompactionInstalled {
+            compaction_id: "compaction-1".to_string(),
+            checkpoint_payload: checkpoint,
         },
     )?;
     let response = writer.write_json_payload(
         RawPayloadKind::InferenceResponse,
         &json!({
             "response_id": "resp-1",
-            "output_items": [{
-                "type": "custom_tool_call",
-                "name": "exec",
-                "call_id": "call-code",
-                "input": "not valid js"
-            }]
+            "output_items": [call]
         }),
     )?;
     writer.append(RawTraceEventPayload::InferenceCompleted {
@@ -262,6 +310,22 @@ fn fast_code_cell_lifecycle_waits_for_source_item() -> anyhow::Result<()> {
     let code_cell_id = test_reduced_code_cell_id("call-code");
     let cell = &rollout.code_cells[&code_cell_id];
 
+    assert_eq!(
+        cell.output_item_ids,
+        vec!["conversation_item:9", "conversation_item:12"]
+    );
+    assert_eq!(
+        (
+            &cell.initial_response_status,
+            &cell.raw_initial_response_payload_id,
+            &cell.raw_result_payload_id,
+        ),
+        (
+            &Some(CodeCellRuntimeStatus::Failed),
+            &Some(initial_response.raw_payload_id),
+            &Some(final_response.raw_payload_id),
+        )
+    );
     assert_eq!(cell.thread_id, "thread-root");
     assert_eq!(cell.runtime_status, CodeCellRuntimeStatus::Failed);
     assert_eq!(cell.execution.status, ExecutionStatus::Failed);
@@ -342,7 +406,7 @@ fn cancelled_turn_terminates_unfinished_code_cell() -> anyhow::Result<()> {
 }
 
 #[test]
-fn runtime_code_cell_ids_can_repeat_across_threads() -> anyhow::Result<()> {
+fn runtime_code_cell_ids_can_repeat_across_threads_and_after_resume() -> anyhow::Result<()> {
     let temp = TempDir::new()?;
     let writer = create_started_writer(&temp)?;
     writer.append(RawTraceEventPayload::ThreadStarted {
@@ -350,9 +414,6 @@ fn runtime_code_cell_ids_can_repeat_across_threads() -> anyhow::Result<()> {
         agent_path: "/root/child".to_string(),
         metadata_payload: None,
     })?;
-    start_turn_for_thread(&writer, "thread-root", "turn-root")?;
-    start_turn_for_thread(&writer, "thread-child", "turn-child")?;
-
     for (thread_id, turn_id, inference_call_id, call_id) in [
         ("thread-root", "turn-root", "inference-root", "call-root"),
         (
@@ -361,7 +422,23 @@ fn runtime_code_cell_ids_can_repeat_across_threads() -> anyhow::Result<()> {
             "inference-child",
             "call-child",
         ),
+        (
+            "thread-child",
+            "turn-resumed",
+            "inference-resumed",
+            "call-resumed",
+        ),
     ] {
+        if turn_id == "turn-resumed" {
+            writer.append(RawTraceEventPayload::ThreadEnded {
+                thread_id: thread_id.to_string(),
+                status: RolloutStatus::Completed,
+            })?;
+            writer.append(RawTraceEventPayload::ThreadResumed {
+                thread_id: thread_id.to_string(),
+            })?;
+        }
+        start_turn_for_thread(&writer, thread_id, turn_id)?;
         let request = writer.write_json_payload(
             RawPayloadKind::InferenceRequest,
             &json!({
@@ -389,7 +466,7 @@ fn runtime_code_cell_ids_can_repeat_across_threads() -> anyhow::Result<()> {
         let response = writer.write_json_payload(
             RawPayloadKind::InferenceResponse,
             &json!({
-                "response_id": format!("resp-{thread_id}"),
+                "response_id": format!("resp-{turn_id}"),
                 "output_items": [{
                     "type": "custom_tool_call",
                     "name": "exec",
@@ -400,7 +477,7 @@ fn runtime_code_cell_ids_can_repeat_across_threads() -> anyhow::Result<()> {
         )?;
         writer.append(RawTraceEventPayload::InferenceCompleted {
             inference_call_id: inference_call_id.to_string(),
-            response_id: Some(format!("resp-{thread_id}")),
+            response_id: Some(format!("resp-{turn_id}")),
             upstream_request_id: None,
             response_payload: response,
         })?;
@@ -417,15 +494,24 @@ fn runtime_code_cell_ids_can_repeat_across_threads() -> anyhow::Result<()> {
     let rollout = replay_bundle(temp.path())?;
     let root_cell_id = test_reduced_code_cell_id("call-root");
     let child_cell_id = test_reduced_code_cell_id("call-child");
+    let resumed_cell_id = test_reduced_code_cell_id("call-resumed");
 
     assert_eq!(rollout.code_cells[&root_cell_id].thread_id, "thread-root");
     assert_eq!(rollout.code_cells[&child_cell_id].thread_id, "thread-child");
+    assert_eq!(
+        rollout.code_cells[&resumed_cell_id].thread_id,
+        "thread-child"
+    );
     assert_eq!(
         rollout.code_cells[&root_cell_id].runtime_cell_id,
         Some("1".to_string())
     );
     assert_eq!(
         rollout.code_cells[&child_cell_id].runtime_cell_id,
+        Some("1".to_string())
+    );
+    assert_eq!(
+        rollout.code_cells[&resumed_cell_id].runtime_cell_id,
         Some("1".to_string())
     );
 

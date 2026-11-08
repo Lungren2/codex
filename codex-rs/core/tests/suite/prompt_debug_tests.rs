@@ -7,6 +7,7 @@ use codex_core::ResponseEvent;
 use codex_core::build_prompt_input;
 use codex_core::config::ConfigBuilder;
 use codex_core::config::ConfigOverrides;
+use codex_extension_api::ExtensionRegistryBuilder;
 use codex_home::CodexHomeUserInstructionsProvider;
 use codex_login::auth::AgentIdentityAuthPolicy;
 use codex_model_provider_info::ModelProviderInfo;
@@ -58,7 +59,6 @@ async fn build_prompt_input_includes_context_and_user_message() -> Result<()> {
     let user_instructions_provider = Arc::new(CodexHomeUserInstructionsProvider::new(
         config.codex_home.clone(),
     ));
-
     let input = build_prompt_input(
         config,
         vec![UserInput::Text {
@@ -66,11 +66,14 @@ async fn build_prompt_input_includes_context_and_user_message() -> Result<()> {
             text_elements: Vec::new(),
         }],
         /*state_db*/ None,
+        Arc::new(ExtensionRegistryBuilder::new().build()),
         user_instructions_provider,
     )
     .await?;
 
     let expected_user_message = ResponseItem::Message {
+        status: None,
+        encrypted_content: None,
         id: None,
         role: "user".to_string(),
         content: vec![ContentItem::InputText {
@@ -93,14 +96,14 @@ async fn build_prompt_input_includes_context_and_user_message() -> Result<()> {
         };
 
         content.iter().any(|content_item| {
-            let (ContentItem::InputText { text } | ContentItem::OutputText { text }) = content_item
+            let (ContentItem::InputText { text } | ContentItem::OutputText { text, .. }) =
+                content_item
             else {
                 return false;
             };
             text.contains(TEST_INSTRUCTIONS)
         })
     }));
-
     Ok(())
 }
 

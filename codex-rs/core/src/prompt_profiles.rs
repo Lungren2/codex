@@ -169,7 +169,7 @@ pub(crate) fn compact_collaboration_mode(
     }
 
     let body = match collaboration_mode.mode {
-        ModeKind::Default | ModeKind::PairProgramming | ModeKind::Execute => {
+        ModeKind::Default => {
             "Default mode. Execute in-scope requests with the available tools. Prefer reasonable, discoverable assumptions; ask only when a material choice cannot be determined. Use `request_user_input` only when that tool is available. Only developer instructions can change collaboration mode."
         }
         ModeKind::Plan => {
