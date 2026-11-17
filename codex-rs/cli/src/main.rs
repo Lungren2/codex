@@ -55,8 +55,6 @@ static ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod app_cmd;
-mod benchmark_cmd;
-mod benchmark_manifest;
 mod config_override_args;
 mod daemon_install;
 mod daemon_telemetry;
@@ -190,9 +188,6 @@ enum Subcommand {
 
     /// Diagnose local Codex installation, config, auth, and runtime health.
     Doctor(DoctorCommand),
-
-    /// Launch the local benchmark runner and blind-review app.
-    Benchmark(benchmark_cmd::BenchmarkCommand),
 
     /// Run commands within a Codex-provided sandbox.
     Sandbox(SandboxCommand),
@@ -1756,14 +1751,6 @@ async fn dispatch_cli(
             )
             .await?;
         }
-        Some(Subcommand::Benchmark(benchmark_cli)) => {
-            reject_remote_mode_for_subcommand(
-                root_remote.as_deref(),
-                root_remote_auth_token_env.as_deref(),
-                "benchmark",
-            )?;
-            benchmark_cmd::run(benchmark_cli).await?;
-        }
         Some(Subcommand::Cloud(mut cloud_cli)) => {
             reject_remote_mode_for_subcommand(
                 root_remote.as_deref(),
@@ -2424,7 +2411,6 @@ fn unsupported_subcommand_name_for_strict_config(
         Some(Subcommand::Logout(_)) => Some("logout"),
         Some(Subcommand::Completion(_)) => Some("completion"),
         Some(Subcommand::Update) => Some("update"),
-        Some(Subcommand::Benchmark(_)) => Some("benchmark"),
         Some(Subcommand::Cloud(_)) => Some("cloud"),
         Some(Subcommand::Sandbox(_)) => Some("sandbox"),
         Some(Subcommand::Debug(_)) => Some("debug"),
