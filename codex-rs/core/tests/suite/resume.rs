@@ -1,5 +1,4 @@
 use anyhow::Result;
-use codex_config::types::ExperimentalPromptProfile;
 use codex_config::types::Personality;
 use codex_core::TurnInputRequest;
 use codex_history::InitialHistory;
@@ -174,13 +173,15 @@ async fn resume_restores_windows_sandbox_override() -> Result<()> {
 }
 
 #[test_case::test_case(false; "legacy_model_instructions")]
-#[test_case::test_case(true; "custom_instructions_with_profile_change")]
+#[test_case::test_case(true; "custom_base_instructions")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn resume_switches_models_preserves_base_instructions(profile_change: bool) -> Result<()> {
+async fn resume_switches_models_preserves_base_instructions(
+    custom_base_instructions: bool,
+) -> Result<()> {
     skip_if_no_network!(Ok(()));
 
     let server = start_mock_server().await;
-    let legacy_instructions = if profile_change {
+    let legacy_instructions = if custom_base_instructions {
         "custom retained base instructions"
     } else {
         "Legacy model instructions\n# Personality\nBe pragmatic."
@@ -194,8 +195,7 @@ async fn resume_switches_models_preserves_base_instructions(profile_change: bool
         })
         .with_config(move |config| {
             config.personality = Some(Personality::Pragmatic);
-            config.experimental_prompt_profile = ExperimentalPromptProfile::Stock;
-            if profile_change {
+            if custom_base_instructions {
                 config.base_instructions = Some(legacy_instructions.to_string());
             }
         });
@@ -239,12 +239,6 @@ async fn resume_switches_models_preserves_base_instructions(profile_change: bool
     let mut resume_builder = test_codex().with_config(move |config| {
         config.model = Some("gpt-5.4".to_string());
         config.personality = Some(Personality::None);
-        config.experimental_prompt_profile = ExperimentalPromptProfile::Stock;
-        if profile_change {
-            config.experimental_prompt_profile = ExperimentalPromptProfile::Custom;
-            config.experimental_prompt_profile_options.base =
-                codex_config::types::ExperimentalPromptBase::Minimal;
-        }
     });
     let resumed = resume_builder.restart(&server, &initial).await?;
     assert_eq!(
@@ -299,12 +293,11 @@ async fn resume_switches_models_preserves_base_instructions(profile_change: bool
         first_model_switch_count >= 1,
         "expected model switch message on first post-resume turn"
     );
-    if profile_change {
+    if custom_base_instructions {
         let first_model_switch = first_developer_texts
             .iter()
             .find(|text| text.contains("<model_switch>"))
             .expect("model switch instructions");
-        assert!(first_model_switch.contains("You are Codex, a coding agent"));
         assert!(!first_model_switch.contains("custom retained base instructions"));
     }
 

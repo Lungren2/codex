@@ -1890,10 +1890,6 @@ impl Session {
                     session_configuration.trace_base_instructions_provenance,
                     session_configuration.retained_session_instructions.clone(),
                 )
-                .with_prompt_profile(
-                    config.experimental_prompt_profile,
-                    config.experimental_prompt_profile_options,
-                )
                 .with_responses_lite_prefix_order(config.experimental_responses_lite_prefix_order),
                 executed_tool_calls: executed_tool_calls.clone(),
                 code_mode_service: crate::tools::code_mode::CodeModeService::new(

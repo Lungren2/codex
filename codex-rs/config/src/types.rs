@@ -69,45 +69,23 @@ const fn default_enabled() -> bool {
     true
 }
 
-/// Prompt assembly profile used for runtime selection and controlled evaluations.
+/// The stock prompt. Former experimental values are accepted as stock for compatibility.
 #[derive(Serialize, Deserialize, Debug, Default, Copy, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ExperimentalPromptProfile {
     /// Preserve the unmodified Codex request.
-    Stock,
-    /// Replace only model-catalog base instructions; explicit and retained instructions stay exact.
-    MinimalBase,
-    /// Replace base instructions with neutral text of the same character length.
-    NeutralLength,
-    /// Remove product personality, presentation, renderer, and promotion guidance.
     #[default]
-    NoProductGuidance,
-    /// Use a concise statement of the effective permission policy.
-    CompactPermissions,
-    /// Use concise collaboration-mode capability and restriction guidance.
-    CompactCollaboration,
-    /// Shorten tool descriptions without changing tool schemas.
-    CompactTools,
-    /// Combine every reduction profile.
-    FullyMinimal,
-    /// Compose a profile from `experimental_prompt_profile_options`.
-    Custom,
-}
-
-impl ExperimentalPromptProfile {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Stock => "stock",
-            Self::MinimalBase => "minimal-base",
-            Self::NeutralLength => "neutral-length",
-            Self::NoProductGuidance => "no-product-guidance",
-            Self::CompactPermissions => "compact-permissions",
-            Self::CompactCollaboration => "compact-collaboration",
-            Self::CompactTools => "compact-tools",
-            Self::FullyMinimal => "fully-minimal",
-            Self::Custom => "custom",
-        }
-    }
+    #[serde(
+        alias = "minimal-base",
+        alias = "neutral-length",
+        alias = "no-product-guidance",
+        alias = "compact-permissions",
+        alias = "compact-collaboration",
+        alias = "compact-tools",
+        alias = "fully-minimal",
+        alias = "custom"
+    )]
+    Stock,
 }
 
 /// Last selected grouping in Agent Command Center.
@@ -128,33 +106,6 @@ impl AgentsOverviewGrouping {
             Self::Model => "model",
         }
     }
-}
-
-/// Base-instruction treatment used by a custom prompt profile.
-#[derive(Serialize, Deserialize, Debug, Default, Copy, Clone, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum ExperimentalPromptBase {
-    #[default]
-    Stock,
-    Minimal,
-    NeutralLength,
-}
-
-/// Independently selectable transformations for a custom prompt profile.
-#[derive(Serialize, Deserialize, Debug, Default, Copy, Clone, PartialEq, Eq, JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[schemars(deny_unknown_fields)]
-pub struct ExperimentalPromptProfileOptions {
-    #[serde(default)]
-    pub base: ExperimentalPromptBase,
-    #[serde(default)]
-    pub remove_product_guidance: bool,
-    #[serde(default)]
-    pub compact_permissions: bool,
-    #[serde(default)]
-    pub compact_collaboration: bool,
-    #[serde(default)]
-    pub compact_tools: bool,
 }
 
 /// Development-only ordering experiment for the developer prefix used by Responses Lite.

@@ -887,17 +887,6 @@ impl Session {
                     TraceBaseInstructionsProvenance::ModelCatalog,
                 )
             };
-        let base_instructions = crate::prompt_profiles::apply_base_profile(
-            config.experimental_prompt_profile,
-            &config.experimental_prompt_profile_options,
-            base_instructions,
-            if trace_base_instructions_provenance == TraceBaseInstructionsProvenance::ModelCatalog {
-                crate::prompt_profiles::BaseProfileSource::ModelCatalog
-            } else {
-                crate::prompt_profiles::BaseProfileSource::RetainedOrOverride
-            },
-        );
-
         // A fork records its initial catalog in the new thread's creation metadata.
         let dynamic_tools = if dynamic_tools.is_empty()
             && matches!(conversation_history, InitialHistory::Forked(_))
@@ -4851,10 +4840,7 @@ impl Session {
             .config
             .features
             .plugin_recommendations_enabled()
-            && !crate::prompt_profiles::removes_product_guidance(
-                turn_context.config.experimental_prompt_profile,
-                &turn_context.config.experimental_prompt_profile_options,
-            ) {
+        {
             let auth = self.services.auth_manager.auth().await;
             let plugins_config = turn_context.config.plugins_config_input();
             self.services

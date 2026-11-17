@@ -34,7 +34,6 @@ use std::sync::LazyLock;
 use writable_roots::writable_roots_text;
 
 mod approval_instructions;
-mod compact;
 mod path_warnings;
 mod writable_roots;
 
@@ -89,12 +88,6 @@ impl<'a> ApprovalPromptContext<'a> {
                     && !text.contains(['<', '>', '{', '}', '\u{2028}', '\u{2029}'])
             })
     }
-}
-
-#[derive(Clone, Copy)]
-enum PermissionInstructionStyle {
-    Full,
-    Compact,
 }
 
 /// Prepared runtime facts borrowed only while composing the fragment.
@@ -198,56 +191,6 @@ impl PermissionsInstructions {
         exec_permission_approvals_enabled: bool,
         request_permissions_tool_enabled: bool,
     ) -> Self {
-        Self::from_permission_profile_with_style(
-            permission_profile,
-            approval_policy,
-            approval_context,
-            exec_policy,
-            cwd,
-            paths,
-            exec_permission_approvals_enabled,
-            request_permissions_tool_enabled,
-            PermissionInstructionStyle::Full,
-        )
-    }
-
-    /// Concise permission text using the same executor-resolved facts.
-    #[allow(clippy::too_many_arguments)]
-    pub fn from_permission_profile_compact(
-        permission_profile: &PermissionProfile,
-        approval_policy: AskForApproval,
-        approval_context: ApprovalPromptContext<'_>,
-        exec_policy: &Policy,
-        cwd: &Path,
-        paths: Option<&FileSystemSandboxPolicyContext<'_>>,
-        exec_permission_approvals_enabled: bool,
-        request_permissions_tool_enabled: bool,
-    ) -> Self {
-        Self::from_permission_profile_with_style(
-            permission_profile,
-            approval_policy,
-            approval_context,
-            exec_policy,
-            cwd,
-            paths,
-            exec_permission_approvals_enabled,
-            request_permissions_tool_enabled,
-            PermissionInstructionStyle::Compact,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn from_permission_profile_with_style(
-        permission_profile: &PermissionProfile,
-        approval_policy: AskForApproval,
-        approval_context: ApprovalPromptContext<'_>,
-        exec_policy: &Policy,
-        cwd: &Path,
-        paths: Option<&FileSystemSandboxPolicyContext<'_>>,
-        exec_permission_approvals_enabled: bool,
-        request_permissions_tool_enabled: bool,
-        style: PermissionInstructionStyle,
-    ) -> Self {
         let file_system_policy = permission_profile.file_system_sandbox_policy();
         let full_disk_write = paths.map_or_else(
             || file_system_policy.has_full_disk_write_access(),
@@ -315,25 +258,24 @@ impl PermissionsInstructions {
         } else {
             SandboxMode::WorkspaceWrite
         };
-        let context = PermissionsRenderContext {
-            sandbox_mode,
-            network_access: if permission_profile.network_sandbox_policy().is_enabled() {
-                NetworkAccess::Enabled
-            } else {
-                NetworkAccess::Restricted
+        Self::from_resolved(
+            PermissionsRenderContext {
+                sandbox_mode,
+                network_access: if permission_profile.network_sandbox_policy().is_enabled() {
+                    NetworkAccess::Enabled
+                } else {
+                    NetworkAccess::Restricted
+                },
+                approval_policy,
+                approved_command_prefixes: &exec_policy.get_allowed_prefixes(),
+                writable_roots: &writable_roots,
+                denied_read_paths: &denied_read_paths,
+                denied_read_globs: &denied_read_globs,
+                exec_permission_approvals_enabled,
+                request_permissions_tool_enabled,
             },
-            approval_policy,
-            approved_command_prefixes: &exec_policy.get_allowed_prefixes(),
-            writable_roots: &writable_roots,
-            denied_read_paths: &denied_read_paths,
-            denied_read_globs: &denied_read_globs,
-            exec_permission_approvals_enabled,
-            request_permissions_tool_enabled,
-        };
-        match style {
-            PermissionInstructionStyle::Full => Self::from_resolved(context, approval_context),
-            PermissionInstructionStyle::Compact => compact::render(context, approval_context),
-        }
+            approval_context,
+        )
     }
 }
 

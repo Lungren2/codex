@@ -16,7 +16,6 @@ use crate::types::ApprovalsReviewer;
 use crate::types::AppsConfigToml;
 use crate::types::AuthCredentialsStoreMode;
 use crate::types::ExperimentalPromptProfile;
-use crate::types::ExperimentalPromptProfileOptions;
 use crate::types::ExperimentalResponsesLitePrefixOrder;
 use crate::types::FeedbackConfigToml;
 use crate::types::History;
@@ -254,11 +253,13 @@ pub struct ConfigToml {
     /// System instructions.
     pub instructions: Option<String>,
 
-    /// Prompt profile for runtime use and controlled request evaluations.
+    /// Stock prompt selection. Older experimental values are treated as stock.
     pub experimental_prompt_profile: Option<ExperimentalPromptProfile>,
 
-    /// Selectable transformations used when `experimental_prompt_profile = "custom"`.
-    pub experimental_prompt_profile_options: Option<ExperimentalPromptProfileOptions>,
+    /// Deprecated: accepted for compatibility with existing configuration files.
+    #[serde(skip_serializing)]
+    #[schemars(skip)]
+    pub experimental_prompt_profile_options: Option<toml::Table>,
 
     /// Development-only Responses Lite prefix ordering experiment.
     pub experimental_responses_lite_prefix_order: Option<ExperimentalResponsesLitePrefixOrder>,
@@ -1063,15 +1064,6 @@ pub fn validate_oss_provider(provider: &str) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::ExperimentalPromptBase;
-
-    #[test]
-    fn no_product_guidance_is_the_default_prompt_profile() {
-        assert_eq!(
-            ExperimentalPromptProfile::default(),
-            ExperimentalPromptProfile::NoProductGuidance
-        );
-    }
     use pretty_assertions::assert_eq;
 
     const WORKSPACE_ID_A: &str = "123e4567-e89b-42d3-a456-426614174000";
@@ -1163,26 +1155,17 @@ mod tests {
     }
 
     #[test]
-    fn experimental_prompt_controls_deserialize_from_root_and_profile_toml() {
-        for (value, expected) in [
-            ("stock", ExperimentalPromptProfile::Stock),
-            ("minimal-base", ExperimentalPromptProfile::MinimalBase),
-            ("neutral-length", ExperimentalPromptProfile::NeutralLength),
-            (
-                "no-product-guidance",
-                ExperimentalPromptProfile::NoProductGuidance,
-            ),
-            (
-                "compact-permissions",
-                ExperimentalPromptProfile::CompactPermissions,
-            ),
-            (
-                "compact-collaboration",
-                ExperimentalPromptProfile::CompactCollaboration,
-            ),
-            ("compact-tools", ExperimentalPromptProfile::CompactTools),
-            ("fully-minimal", ExperimentalPromptProfile::FullyMinimal),
-            ("custom", ExperimentalPromptProfile::Custom),
+    fn old_prompt_profile_values_resolve_to_stock_in_root_and_profile_toml() {
+        for value in [
+            "stock",
+            "minimal-base",
+            "neutral-length",
+            "no-product-guidance",
+            "compact-permissions",
+            "compact-collaboration",
+            "compact-tools",
+            "fully-minimal",
+            "custom",
         ] {
             let config: ConfigToml = toml::from_str(&format!(
                 "experimental_prompt_profile = \"{value}\"\n\
@@ -1200,9 +1183,9 @@ mod tests {
                     config.profiles["eval"].experimental_responses_lite_prefix_order,
                 ),
                 (
-                    Some(expected),
+                    Some(ExperimentalPromptProfile::Stock),
                     Some(ExperimentalResponsesLitePrefixOrder::BaseThenTools),
-                    Some(expected),
+                    Some(ExperimentalPromptProfile::Stock),
                     Some(ExperimentalResponsesLitePrefixOrder::ToolsThenBase),
                 ),
             );
@@ -1210,9 +1193,8 @@ mod tests {
     }
 
     #[test]
-    fn custom_prompt_profile_options_deserialize_from_root_and_profile_toml() {
-        let config: ConfigToml = toml::from_str(
-            "experimental_prompt_profile = \"custom\"\n\
+    fn legacy_prompt_profile_options_are_accepted_and_dropped_on_serialization() {
+        let contents = "experimental_prompt_profile = \"custom\"\n\
              [experimental_prompt_profile_options]\n\
              base = \"minimal\"\n\
              remove_product_guidance = true\n\
@@ -1221,26 +1203,21 @@ mod tests {
              experimental_prompt_profile = \"custom\"\n\
              [profiles.eval.experimental_prompt_profile_options]\n\
              base = \"neutral-length\"\n\
-             compact_permissions = true",
-        )
-        .expect("custom prompt profile options should deserialize");
-        assert_eq!(
-            config.experimental_prompt_profile_options,
-            Some(ExperimentalPromptProfileOptions {
-                base: ExperimentalPromptBase::Minimal,
-                remove_product_guidance: true,
-                compact_tools: true,
-                ..Default::default()
-            })
+             compact_permissions = true";
+        assert!(
+            crate::config_error_from_ignored_toml_fields::<ConfigToml>("config.toml", contents)
+                .is_none()
         );
-        assert_eq!(
-            config.profiles["eval"].experimental_prompt_profile_options,
-            Some(ExperimentalPromptProfileOptions {
-                base: ExperimentalPromptBase::NeutralLength,
-                compact_permissions: true,
-                ..Default::default()
-            })
-        );
+        let config: ConfigToml =
+            toml::from_str(contents).expect("legacy options should deserialize");
+        let serialized = toml::Value::try_from(config).expect("config should serialize");
+        for section in [&serialized, &serialized["profiles"]["eval"]] {
+            assert_eq!(
+                section["experimental_prompt_profile"].as_str(),
+                Some("stock")
+            );
+            assert!(section.get("experimental_prompt_profile_options").is_none());
+        }
     }
 
     #[test]

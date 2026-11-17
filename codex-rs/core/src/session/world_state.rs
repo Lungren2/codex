@@ -79,12 +79,7 @@ impl Session {
             "building step world state"
         );
         let render_current_instructions = || {
-            let instructions = crate::prompt_profiles::apply_base_profile(
-                turn_context.config.experimental_prompt_profile,
-                &turn_context.config.experimental_prompt_profile_options,
-                render_model_instructions(model_info),
-                crate::prompt_profiles::BaseProfileSource::ModelCatalog,
-            );
+            let instructions = render_model_instructions(model_info);
             if !turn_context.config.update_plan_enabled
                 && turn_context.config.model_catalog.is_none()
                 && (incremental_tools
@@ -252,15 +247,7 @@ impl Session {
             let cwd = environment
                 .and_then(|environment| environment.cwd().to_abs_path().ok())
                 .unwrap_or_else(|| turn_context.cwd.clone());
-            let build_permissions = if crate::prompt_profiles::compacts_permissions(
-                turn_context.config.experimental_prompt_profile,
-                &turn_context.config.experimental_prompt_profile_options,
-            ) {
-                PermissionsState::new_compact
-            } else {
-                PermissionsState::new
-            };
-            world_state.add_section(build_permissions(
+            world_state.add_section(PermissionsState::new(
                 &permission_profile,
                 settings.approval_policy(),
                 approval_context,
@@ -283,21 +270,8 @@ impl Session {
             ));
         }
         if turn_context.config.include_collaboration_mode_instructions {
-            let mut collaboration_mode = settings.effective_collaboration_mode();
-            if crate::prompt_profiles::compacts_collaboration(
-                turn_context.config.experimental_prompt_profile,
-                &turn_context.config.experimental_prompt_profile_options,
-            ) && let Some(instructions) =
-                collaboration_mode.settings.developer_instructions.clone()
-            {
-                collaboration_mode.settings.developer_instructions =
-                    Some(crate::prompt_profiles::compact_collaboration_mode(
-                        &collaboration_mode,
-                        instructions,
-                    ));
-            }
             world_state.add_section(CollaborationModeState::from_collaboration_mode(
-                &collaboration_mode,
+                &settings.effective_collaboration_mode(),
                 model_messages.collaboration_modes(),
                 turn_context.config.update_plan_enabled,
                 turn_context.config.model_catalog.is_some(),

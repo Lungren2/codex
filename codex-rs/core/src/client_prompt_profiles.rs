@@ -74,10 +74,7 @@ impl ModelClient {
         }
         let prompt_assembly = PromptAssemblyTracePayload {
             model: model_info.slug.clone(),
-            prompt_profile: crate::prompt_profiles::profile_name(
-                self.prompt_profile,
-                &self.prompt_profile_options,
-            ),
+            prompt_profile: "stock".to_string(),
             base_instructions: prompt.base_instructions.text.clone(),
             base_instructions_provenance: self.base_instructions_provenance,
             retained_session_instructions: self.retained_session_instructions.clone(),

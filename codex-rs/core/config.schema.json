@@ -361,7 +361,7 @@
           "type": "boolean"
         },
         "model_async_compact_threshold_percent": {
-          "description": "Percentage of the model's full context window that starts background compaction. Defaults to 65; valid values are 1\u2013100, including when disabled.",
+          "description": "Percentage of the model's full context window that starts background compaction. Defaults to 65; valid values are 1–100, including when disabled.",
           "format": "uint8",
           "maximum": 100.0,
           "minimum": 1.0,
@@ -830,9 +830,6 @@
         },
         "experimental_prompt_profile": {
           "$ref": "#/definitions/ExperimentalPromptProfile"
-        },
-        "experimental_prompt_profile_options": {
-          "$ref": "#/definitions/ExperimentalPromptProfileOptions"
         },
         "experimental_responses_lite_prefix_order": {
           "$ref": "#/definitions/ExperimentalResponsesLitePrefixOrder"
@@ -1730,17 +1727,8 @@
       ],
       "type": "string"
     },
-    "ExperimentalPromptBase": {
-      "description": "Base-instruction treatment used by a custom prompt profile.",
-      "enum": [
-        "stock",
-        "minimal",
-        "neutral-length"
-      ],
-      "type": "string"
-    },
     "ExperimentalPromptProfile": {
-      "description": "Prompt assembly profile used for runtime selection and controlled evaluations.",
+      "description": "The stock prompt. Former experimental values are accepted as stock for compatibility.",
       "oneOf": [
         {
           "description": "Preserve the unmodified Codex request.",
@@ -1748,95 +1736,8 @@
             "stock"
           ],
           "type": "string"
-        },
-        {
-          "description": "Replace only model-catalog base instructions; explicit and retained instructions stay exact.",
-          "enum": [
-            "minimal-base"
-          ],
-          "type": "string"
-        },
-        {
-          "description": "Replace base instructions with neutral text of the same character length.",
-          "enum": [
-            "neutral-length"
-          ],
-          "type": "string"
-        },
-        {
-          "description": "Remove product personality, presentation, renderer, and promotion guidance.",
-          "enum": [
-            "no-product-guidance"
-          ],
-          "type": "string"
-        },
-        {
-          "description": "Use a concise statement of the effective permission policy.",
-          "enum": [
-            "compact-permissions"
-          ],
-          "type": "string"
-        },
-        {
-          "description": "Use concise collaboration-mode capability and restriction guidance.",
-          "enum": [
-            "compact-collaboration"
-          ],
-          "type": "string"
-        },
-        {
-          "description": "Shorten tool descriptions without changing tool schemas.",
-          "enum": [
-            "compact-tools"
-          ],
-          "type": "string"
-        },
-        {
-          "description": "Combine every reduction profile.",
-          "enum": [
-            "fully-minimal"
-          ],
-          "type": "string"
-        },
-        {
-          "description": "Compose a profile from `experimental_prompt_profile_options`.",
-          "enum": [
-            "custom"
-          ],
-          "type": "string"
         }
       ]
-    },
-    "ExperimentalPromptProfileOptions": {
-      "additionalProperties": false,
-      "description": "Independently selectable transformations for a custom prompt profile.",
-      "properties": {
-        "base": {
-          "allOf": [
-            {
-              "$ref": "#/definitions/ExperimentalPromptBase"
-            }
-          ],
-          "default": "stock"
-        },
-        "compact_collaboration": {
-          "default": false,
-          "type": "boolean"
-        },
-        "compact_permissions": {
-          "default": false,
-          "type": "boolean"
-        },
-        "compact_tools": {
-          "default": false,
-          "type": "boolean"
-        },
-        "remove_product_guidance": {
-          "default": false,
-          "type": "boolean"
-        }
-      },
-      "type": "object"
     },
     "ExperimentalRequestUserInput": {
       "additionalProperties": false,
@@ -7638,15 +7539,7 @@
           "$ref": "#/definitions/ExperimentalPromptProfile"
         }
       ],
-      "description": "Prompt profile for runtime use and controlled request evaluations."
-    },
-    "experimental_prompt_profile_options": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/ExperimentalPromptProfileOptions"
-        }
-      ],
-      "description": "Selectable transformations used when `experimental_prompt_profile = \"custom\"`."
+      "description": "Stock prompt selection. Older experimental values are treated as stock."
     },
     "experimental_realtime_start_instructions": {
       "description": "Experimental / do not use. Replaces the built-in realtime start instructions inserted into developer messages when realtime becomes active.",
@@ -8550,7 +8443,7 @@
       "description": "Optional path to a file containing model instructions that will override the built-in instructions for the selected model. Users are STRONGLY DISCOURAGED from using this field, as deviating from the instructions sanctioned by Codex will likely degrade model performance."
     },
     "model_post_turn_compact_threshold_percent": {
-      "description": "Percentage of the usable context window that triggers compaction after a final response. Existing auto-compaction limits still apply. Omitted or zero disables turn-end compaction; valid values are 0\u2013100.",
+      "description": "Percentage of the usable context window that triggers compaction after a final response. Existing auto-compaction limits still apply. Omitted or zero disables turn-end compaction; valid values are 0–100.",
       "format": "uint8",
       "maximum": 100.0,
       "minimum": 0.0,

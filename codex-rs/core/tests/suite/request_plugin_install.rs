@@ -2,7 +2,6 @@
 
 use anyhow::Context;
 use anyhow::Result;
-use codex_config::types::ExperimentalPromptProfile;
 use codex_config::types::ToolSuggestDisabledTool;
 use codex_config::types::ToolSuggestDiscoverable;
 use codex_config::types::ToolSuggestDiscoverableType;
@@ -1157,55 +1156,6 @@ async fn endpoint_mode_injects_candidates_hides_list_and_rejects_invented_ids() 
         .function_call_output_text(call_id)
         .expect("request tool output");
     assert!(output.contains("<recommended_plugins> list"));
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn no_product_guidance_suppresses_recommended_plugin_context() -> Result<()> {
-    skip_if_no_network!(Ok(()));
-
-    let server = start_mock_server().await;
-    let apps_server = AppsTestServer::mount(&server).await?;
-    Mock::given(method("GET"))
-        .and(path("/ps/plugins/suggested"))
-        .and(query_param("scope", "GLOBAL"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "enabled": true,
-            "plugins": [{
-                "id": "plugin_github",
-                "name": "github",
-                "status": "ENABLED",
-                "installation_policy": "AVAILABLE",
-                "release": {"display_name": "GitHub"}
-            }]
-        })))
-        .expect(0)
-        .mount(&server)
-        .await;
-    let response_mock = mount_sse_once(
-        &server,
-        sse(vec![ev_response_created("resp-1"), ev_completed("resp-1")]),
-    )
-    .await;
-    let mut builder = test_codex()
-        .with_auth(CodexAuth::create_dummy_chatgpt_auth_for_testing())
-        .with_config({
-            let apps_base_url = apps_server.chatgpt_base_url.clone();
-            move |config| {
-                configure_apps_without_search_tool(config, apps_base_url.as_str());
-                config.experimental_prompt_profile = ExperimentalPromptProfile::NoProductGuidance;
-            }
-        });
-    let test = builder.build(&server).await?;
-
-    test.submit_turn("suggest a plugin").await?;
-
-    let contextual_user_message = response_mock
-        .single_request()
-        .message_input_texts("user")
-        .join("\n");
-    assert!(!contextual_user_message.contains("<recommended_plugins>"));
-    assert!(!contextual_user_message.contains("github@openai-curated-remote"));
     Ok(())
 }
 

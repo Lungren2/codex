@@ -49,7 +49,7 @@ impl PermissionsState {
         exec_permission_approvals_enabled: bool,
         request_permissions_tool_enabled: bool,
     ) -> Self {
-        let build_instructions = |exec_policy: &Policy| {
+        let build_instructions = |exec_policy| {
             PermissionsInstructions::from_permission_profile(
                 permission_profile,
                 approval_policy,
@@ -61,40 +61,6 @@ impl PermissionsState {
                 request_permissions_tool_enabled,
             )
         };
-        Self::from_builder(exec_policy, approval_context, build_instructions)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new_compact(
-        permission_profile: &PermissionProfile,
-        approval_policy: AskForApproval,
-        approval_context: ApprovalPromptContext<'_>,
-        exec_policy: &Policy,
-        cwd: &Path,
-        paths: Option<&FileSystemSandboxPolicyContext<'_>>,
-        exec_permission_approvals_enabled: bool,
-        request_permissions_tool_enabled: bool,
-    ) -> Self {
-        let build_instructions = |exec_policy: &Policy| {
-            PermissionsInstructions::from_permission_profile_compact(
-                permission_profile,
-                approval_policy,
-                approval_context,
-                exec_policy,
-                cwd,
-                paths,
-                exec_permission_approvals_enabled,
-                request_permissions_tool_enabled,
-            )
-        };
-        Self::from_builder(exec_policy, approval_context, build_instructions)
-    }
-
-    fn from_builder(
-        exec_policy: &Policy,
-        approval_context: ApprovalPromptContext<'_>,
-        build_instructions: impl Fn(&Policy) -> PermissionsInstructions,
-    ) -> Self {
         let instructions = build_instructions(exec_policy);
         let instructions_without_approved_prefixes = build_instructions(&Policy::empty());
         let snapshot = PermissionsSnapshot::Current {

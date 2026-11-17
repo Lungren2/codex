@@ -1,14 +1,16 @@
 # gpt-5.6-luna — stock
 
-This artifact contains the effective **model-catalog base instructions** before user context is included.
+This artifact describes the complete **profile-controlled inference prefix** for this model/profile combination. It distinguishes exact static text from runtime-resolved content instead of omitting dynamic components.
 
-- Source: codex-rs/models-manager/models.json and codex-rs/core/src/prompt_profiles.rs
-- Model template SHA-256: cbefa6b0bede0e332d957fca70ccacf9f12f4c0ecdf81b819e5cbe1a3b16e265
-- Profile behavior: Unmodified model-catalog base instructions.
-- Runtime context not embedded here: None.
-- Also excluded because it is session/environment-specific: developer instructions, tool definitions, permission policy, workspace instructions, skills, environment context, and prior conversation items.
+GPT-5.6 uses Responses Lite. At request time Codex prepends an `additional_tools` developer item and the base-instructions developer message to the input. The accumulated world-state and developer context follows before the current user item. Prior conversation items may appear between these components and the current user item on later turns.
 
-## Effective model-catalog base instructions
+This is an assembly contract, not a byte-for-byte capture of one session. Values controlled by permissions, collaboration mode, enabled tools, workspace instructions, skills, plugins, environment state, and conversation history cannot be fixed by a model/profile pair alone.
+
+## Profile-controlled components
+
+### Model-catalog base instructions
+
+These are passed exactly as a developer message:
 
 ````markdown
 You are Codex, an agent based on GPT-5. You and the user share one workspace, and your job is to collaborate with them until their goal is genuinely handled.
@@ -180,3 +182,38 @@ When using a skill the user did not explicitly name, follow this procedure:
 If a skill causes the current turn to pause or otherwise blocks the continuation of the task, cite the skill and provide a concise explanation to the user in your final response. Do not cite skills you merely inspected.
 
 ````
+
+### Permissions developer fragment
+
+The normal runtime permission renderer emits the effective sandbox, network, approval, writable-root, denied-read, and permission-request guidance as a developer fragment. Its exact text depends on the active permission profile and is not transformed by this profile.
+
+### Collaboration-mode developer fragment
+
+The selected collaboration mode's normal developer instructions are emitted unchanged. The exact text depends on the active mode and any custom collaboration configuration.
+
+### Tool definitions
+
+The runtime tool set and its full descriptions are emitted unchanged as an `additional_tools` developer item. The concrete list depends on extensions, apps, MCP servers, and feature flags.
+
+### Product-guidance behavior
+
+No product-guidance contribution is removed.
+
+## Other pre-user context
+
+The following runtime contributions are not changed by this profile and are included when applicable:
+
+- configured developer instructions;
+- AGENTS.md/workspace instructions;
+- environment and working-directory context;
+- available skills, plugins, apps, and MCP context;
+- multi-agent mode, realtime, budget, and model-switch context;
+- retained conversation items and world-state updates.
+
+## Source of truth
+
+- Base instruction selection: `codex-rs/core/src/session/mod.rs`
+- Permission rendering: `codex-rs/prompts/src/permissions_instructions.rs`
+- Permission and collaboration insertion: `codex-rs/core/src/session/world_state.rs`
+- Tool serialization and Responses Lite prefix insertion: `codex-rs/core/src/client.rs`
+- Catalog template: `codex-rs/models-manager/models.json`

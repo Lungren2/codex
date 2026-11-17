@@ -71,8 +71,6 @@ use codex_api::auth_header_telemetry;
 use codex_api::build_session_headers;
 use codex_api::create_text_param_for_request;
 use codex_api::response_create_client_metadata;
-use codex_config::types::ExperimentalPromptProfile;
-use codex_config::types::ExperimentalPromptProfileOptions;
 use codex_config::types::ExperimentalResponsesLitePrefixOrder;
 use codex_features::RuntimeAuthMode;
 use codex_http_client::ClientRouteClass;
@@ -305,8 +303,6 @@ pub struct ModelClient {
     agent_identity_policy: AgentIdentityAuthPolicy,
     base_instructions_provenance: BaseInstructionsProvenance,
     retained_session_instructions: Option<String>,
-    prompt_profile: ExperimentalPromptProfile,
-    prompt_profile_options: ExperimentalPromptProfileOptions,
     responses_lite_prefix_order: ExperimentalResponsesLitePrefixOrder,
     prompt_cache_key_policy: PromptCacheKey,
     session_id_override: Option<String>,
@@ -654,8 +650,6 @@ impl ModelClient {
             agent_identity_policy,
             base_instructions_provenance: BaseInstructionsProvenance::ModelCatalog,
             retained_session_instructions: None,
-            prompt_profile: ExperimentalPromptProfile::default(),
-            prompt_profile_options: ExperimentalPromptProfileOptions::default(),
             responses_lite_prefix_order: ExperimentalResponsesLitePrefixOrder::ToolsThenBase,
             prompt_cache_key_policy: PromptCacheKey::default(),
             session_id_override: None,
@@ -683,16 +677,6 @@ impl ModelClient {
     ) -> Self {
         self.base_instructions_provenance = base_instructions_provenance;
         self.retained_session_instructions = retained_session_instructions;
-        self
-    }
-
-    pub(crate) fn with_prompt_profile(
-        mut self,
-        prompt_profile: ExperimentalPromptProfile,
-        prompt_profile_options: ExperimentalPromptProfileOptions,
-    ) -> Self {
-        self.prompt_profile = prompt_profile;
-        self.prompt_profile_options = prompt_profile_options;
         self
     }
 
@@ -1105,13 +1089,7 @@ impl ModelClient {
         let mut prefix = Vec::new();
         let tools = if model_info.use_responses_lite {
             if !prompt.tools.is_empty() {
-                let mut tools = create_tools_json_for_responses_lite(&prompt.tools)?;
-                if crate::prompt_profiles::compacts_tools(
-                    self.prompt_profile,
-                    &self.prompt_profile_options,
-                ) {
-                    crate::prompt_profiles::compact_tool_descriptions(&mut tools);
-                }
+                let tools = create_tools_json_for_responses_lite(&prompt.tools)?;
                 prefix.push(ResponseItem::AdditionalTools {
                     id: Some(ResponseItemId::with_suffix(
                         "at",
@@ -1124,18 +1102,7 @@ impl ModelClient {
             None
         } else {
             let tools = create_tools_raw_json_for_responses_api(&prompt.tools)?;
-            if crate::prompt_profiles::compacts_tools(
-                self.prompt_profile,
-                &self.prompt_profile_options,
-            ) {
-                let mut values = serde_json::from_str::<Vec<serde_json::Value>>(tools.get())?;
-                crate::prompt_profiles::compact_tool_descriptions(&mut values);
-                let tools: Arc<serde_json::value::RawValue> =
-                    Arc::from(serde_json::value::to_raw_value(&values)?);
-                Some(tools.into())
-            } else {
-                Some(tools.into())
-            }
+            Some(tools.into())
         };
         if !prompt.base_instructions.text.is_empty() {
             let mut instructions = ContextualUserFragment::into(BaseInstructionsFragment(
