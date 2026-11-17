@@ -1,4 +1,5 @@
 use super::*;
+use pretty_assertions::assert_eq;
 
 #[tokio::test]
 async fn responses_lite_request_retains_pre_transform_prompt_debug_data() -> anyhow::Result<()> {
@@ -9,6 +10,8 @@ async fn responses_lite_request_retains_pre_transform_prompt_debug_data() -> any
     );
     let prompt = Prompt {
         input: vec![ResponseItem::Message {
+            encrypted_content: None,
+            status: None,
             id: None,
             role: "user".to_string(),
             content: vec![ContentItem::InputText {
