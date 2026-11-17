@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use super::ExecContext;
 use super::PUBLIC_TOOL_NAME;
-use super::handle_runtime_response;
+use super::handle_runtime_response_with_output;
 use super::is_exec_tool_name;
 use super::output::CodeModeToolOutput;
 use super::prepare_code_mode_tool_definitions;
@@ -49,6 +49,18 @@ impl CodeModeExecuteHandler {
         let exec = ExecContext {
             session,
             turn: Arc::clone(&step_context.turn),
+        };
+        let inference_pause_threshold_ms = exec
+            .turn
+            .config
+            .tool_inference_pause_threshold_ms
+            .filter(|_| args.yield_time_ms != Some(0));
+        let max_output_tokens = if inference_pause_threshold_ms.is_some() {
+            Some(crate::tools::foreground_wait::output_budget(
+                args.max_output_tokens,
+            ))
+        } else {
+            args.max_output_tokens
         };
         let code_mode_input_schema_max_bytes = step_context
             .turn
@@ -86,8 +98,8 @@ impl CodeModeExecuteHandler {
                     tool_call_id: call_id.clone(),
                     enabled_tools,
                     source: args.code.clone(),
-                    yield_time_ms: args.yield_time_ms,
-                    max_output_tokens: args.max_output_tokens,
+                    yield_time_ms: inference_pause_threshold_ms.or(args.yield_time_ms),
+                    max_output_tokens,
                 },
                 Arc::clone(&step_context),
             )
@@ -135,6 +147,20 @@ impl CodeModeExecuteHandler {
         // is produced by `handle_runtime_response` and later linked through
         // `CodeCell.output_item_ids` in the reduced trace.
         code_cell_trace.record_initial_response(&response);
+        let (response, foreground) = if inference_pause_threshold_ms.is_some() {
+            let (response, output) = super::completion_wait::wait_for_completion(
+                &exec,
+                step_context.preempt.clone(),
+                response,
+                max_output_tokens,
+                telemetry,
+            )
+            .await
+            .map_err(FunctionCallError::RespondToModel)?;
+            (response, Some(output))
+        } else {
+            (response, None)
+        };
         // Yielded cells keep running, so terminal lifecycle is only emitted
         // here when the first response also ended the runtime.
         if matches!(response, codex_code_mode::RuntimeResponse::Yielded { .. }) {
@@ -158,16 +184,21 @@ impl CodeModeExecuteHandler {
                 });
         }
         exec.session.services.elicitations.wait_until_clear().await;
-        let wall_time = response
-            .code_mode_host_duration()
-            .unwrap_or_else(|| started_at.elapsed());
-        Ok(handle_runtime_response(
+        let wall_time = if foreground.is_some() {
+            started_at.elapsed()
+        } else {
+            response
+                .code_mode_host_duration()
+                .unwrap_or_else(|| started_at.elapsed())
+        };
+        Ok(handle_runtime_response_with_output(
             &step_context.settings.model_info,
             response,
-            args.max_output_tokens,
+            max_output_tokens,
             exec.session.services.code_mode_service.output_truncation(),
             wall_time,
             exec.turn.config.code_mode.experimental_show_cell_overhead,
+            foreground,
         ))
     }
 }

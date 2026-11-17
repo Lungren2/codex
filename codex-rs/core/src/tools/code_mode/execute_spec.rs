@@ -15,7 +15,9 @@ SOURCE: /[\s\S]+/
 
     ToolSpec::Freeform(FreeformTool {
         name: codex_code_mode::PUBLIC_TOOL_NAME.to_string(),
-        description,
+        description: format!(
+            "{description}\n\nWhen automatic foreground waiting is configured, elapsed yields stay inside the harness until the cell resolves. Use an explicit yield_time_ms: 0 pragma for background or interactive control."
+        ),
         defer_loading: None,
         format: FreeformToolFormat {
             r#type: "grammar".to_string(),
@@ -36,7 +38,7 @@ mod tests {
             create_code_mode_tool("Run JavaScript code.".to_string()),
             ToolSpec::Freeform(FreeformTool {
                 name: codex_code_mode::PUBLIC_TOOL_NAME.to_string(),
-                description: "Run JavaScript code.".to_string(),
+                description: "Run JavaScript code.\n\nWhen automatic foreground waiting is configured, elapsed yields stay inside the harness until the cell resolves. Use an explicit yield_time_ms: 0 pragma for background or interactive control.".to_string(),
                 defer_loading: None,
                 format: FreeformToolFormat {
                     r#type: "grammar".to_string(),

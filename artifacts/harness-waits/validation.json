@@ -1,0 +1,187 @@
+{
+  "scope": "Automatic inference suspension for foreground native commands and code cells",
+  "source": "D:/dev/codex",
+  "base_revision": "f699158a2ea442d24351068e78157d13a3742982",
+  "source_has_preexisting_changes": true,
+  "activation": {
+    "launcher": "codex-dev",
+    "version": "0.142.5",
+    "binary": "C:/Users/EthanO/.codex-dev/target/debug/codex.exe",
+    "binary_sha256": "493d2c8c605c832cd391f97abc93c0fe2a8530b51389cb0aa988486911d202a3",
+    "config": "C:/Users/EthanO/.codex-dev/config.toml",
+    "tool_inference_pause_threshold_ms": 10000,
+    "stock_desktop_modified": false,
+    "primary_config_modified": false
+  },
+  "integration": {
+    "run_id": "5562b6aa-bc8c-4b69-9e6e-ca6055c4d8f8",
+    "assertions_passed": 8,
+    "skipped": 0,
+    "nextest_leak_warnings": [
+      "native background",
+      "foreground PTY"
+    ],
+    "clean_run": false,
+    "log": "C:/Users/EthanO/.codex-dev/tmp/harness-inference-pause-standalone.log",
+    "isolated_native_foreground_clean_run_id": "53d494fe-bd15-4dd9-ab3d-317e59933c99"
+  },
+  "executable_smoke": {
+    "binary": "C:\\Users\\EthanO\\.codex-dev\\target\\dev-small\\codex.exe",
+    "cases": [
+      {
+        "kind": "native",
+        "threshold_ms": 25,
+        "passed": true,
+        "cli_exit": 0,
+        "model_requests": 2,
+        "second_request_delay_s": 6.875,
+        "terminal_result_seen": true,
+        "pending_handle_seen": false,
+        "wall_s": 10.35899999999674,
+        "fixture_errors": [],
+        "evidence": "C:\\Users\\EthanO\\.codex-dev\\tmp\\harness-smoke-e8142gy4",
+        "real_model_calls": 0
+      },
+      {
+        "kind": "code_mode",
+        "threshold_ms": 25,
+        "passed": true,
+        "cli_exit": 0,
+        "model_requests": 2,
+        "second_request_delay_s": 6.375,
+        "terminal_result_seen": true,
+        "pending_handle_seen": false,
+        "wall_s": 8.25,
+        "fixture_errors": [],
+        "evidence": "C:\\Users\\EthanO\\.codex-dev\\tmp\\harness-smoke-05skxyfx",
+        "real_model_calls": 0
+      },
+      {
+        "kind": "native",
+        "threshold_ms": 0,
+        "passed": true,
+        "cli_exit": 0,
+        "model_requests": 2,
+        "second_request_delay_s": 3.952999999979511,
+        "terminal_result_seen": false,
+        "pending_handle_seen": true,
+        "wall_s": 5.797000000020489,
+        "fixture_errors": [],
+        "evidence": "C:\\Users\\EthanO\\.codex-dev\\tmp\\harness-smoke-lvh1yx0f",
+        "real_model_calls": 0
+      }
+    ],
+    "passed": true
+  },
+  "formatting": {
+    "status": "passed",
+    "command": "just fmt"
+  },
+  "schema": {
+    "status": "passed",
+    "command": "just write-config-schema --profile dev-small",
+    "log": "C:/Users/EthanO/.codex-dev/tmp/harness-config-schema.log"
+  },
+  "cli_build": {
+    "status": "passed",
+    "log": "C:/Users/EthanO/.codex-dev/tmp/harness-cli-build.log"
+  },
+  "lint": {
+    "status": "blocked_by_existing_aggregate_test_compile_errors",
+    "command": "just fix -p codex-core --profile dev-small",
+    "log": "C:/Users/EthanO/.codex-dev/tmp/harness-just-fix.log",
+    "exit_code": 1
+  },
+  "aggregate_core_suite": {
+    "status": "blocked_by_existing_compile_errors",
+    "files": [
+      "codex-rs/core/tests/suite/multi_agent_mode.rs",
+      "codex-rs/core/tests/suite/prompt_debug_tests.rs"
+    ],
+    "log": "C:/Users/EthanO/.codex-dev/tmp/harness-inference-pause-tests.log"
+  },
+  "full_workspace_suite": "not_run; requires user approval under source AGENTS.md",
+  "ecosystem_audit": {
+    "development_binary_home_and_shim": "passed",
+    "overall": "failed_on_existing_unrelated_missing_components",
+    "log": "C:/Users/EthanO/.codex-dev/tmp/harness-ecosystem-audit.json"
+  },
+  "limits": [
+    "No real-model reasoning-token savings measured",
+    "No remote Wine/Docker execution observed",
+    "Prevents subsequent inference requests; does not cut off an already-streaming request",
+    "Explicit zero yield remains background/interactive control",
+    "No stock desktop activation"
+  ],
+  "executable_long_wait": {
+    "binary": "C:\\Users\\EthanO\\.codex-dev\\target\\debug\\codex.exe",
+    "cases": [
+      {
+        "kind": "native",
+        "threshold_ms": 25,
+        "command_seconds": 65,
+        "passed": true,
+        "cli_exit": 0,
+        "model_requests": 2,
+        "second_request_delay_s": 68.45300000003772,
+        "terminal_result_seen": true,
+        "pending_handle_seen": false,
+        "wall_s": 70.57799999997951,
+        "fixture_errors": [],
+        "evidence": "C:\\Users\\EthanO\\.codex-dev\\tmp\\harness-smoke-iefoo3di",
+        "real_model_calls": 0
+      },
+      {
+        "kind": "code_mode",
+        "threshold_ms": 25,
+        "command_seconds": 65,
+        "passed": true,
+        "cli_exit": 0,
+        "model_requests": 2,
+        "second_request_delay_s": 67.73399999999674,
+        "terminal_result_seen": true,
+        "pending_handle_seen": false,
+        "wall_s": 69.31300000002375,
+        "fixture_errors": [],
+        "evidence": "C:\\Users\\EthanO\\.codex-dev\\tmp\\harness-smoke-i_rgdduk",
+        "real_model_calls": 0
+      }
+    ],
+    "passed": true
+  },
+  "focused_lint": {
+    "status": "passed_with_existing_warnings",
+    "command": "cargo clippy --fix --allow-dirty --profile dev-small -p codex-core --lib --test inference_pause",
+    "log": "C:/Users/EthanO/.codex-dev/tmp/harness-clippy-focused.log",
+    "exit_code": 0,
+    "existing_prompt_profile_warnings": 7
+  },
+  "post_build_source_delta": "Clippy removed a redundant String::to_string copy in shell_spec.rs; no behavior change",
+  "final_review": {
+    "snapshot_review": "only redundant String copy removal; other saved Rust files unchanged",
+    "changed_file_rustfmt_check": "passed",
+    "git_diff_check": "passed",
+    "head_unchanged": true,
+    "tests_rerun_after_lint": false,
+    "live_build_or_test_handles": []
+  },
+  "completed_utc": "2026-11-07T17:45:22.530747+00:00",
+  "final_source_file_sha256": {
+    "codex-rs/config/src/config_toml.rs": "80e2443e8b416e2f4a2708dcb2d37f12f8beddace6a28c505011cbb86577ab16",
+    "codex-rs/core/src/config/mod.rs": "e4a0ec49b5abb36c4be6becc55725800344889a7346376ac182ed7db3df3b166",
+    "codex-rs/core/config.schema.json": "be2953c84f22e69e6927d01b109bedc20902bfa3c8da982313c1ce71585cbbea",
+    "codex-rs/core/src/unified_exec/process_manager.rs": "a23d55eb6e12bf2775b886d8d23f2a38a9eddf549e6db869ae6facd9fba33ea4",
+    "codex-rs/core/src/tools/foreground_wait.rs": "2997a732e9dc555ab9cdd823ccf8a7ba890df724e8e81cdc5e09edf23d630c4b",
+    "codex-rs/core/src/tools/mod.rs": "8457cf41cfc3351222a2ccd0e6e46d3a5c525125eedb6c048c0e7084fdf991cc",
+    "codex-rs/core/src/tools/code_mode/completion_wait.rs": "a98dde6486b22be364462a91470596d1b826d9a4f80a1da4ec961fdb51317ff2",
+    "codex-rs/core/src/tools/code_mode/execute_handler.rs": "b902a8580601fa40a2f135e3f644db5f9dbfaa77b7b631ed31472edbd9f20bbd",
+    "codex-rs/core/src/tools/code_mode/mod.rs": "3cad37e309289cc5507976a4e880d9eefca3de9e4e1740b32be9b126a8b84923",
+    "codex-rs/core/src/tools/code_mode/wait_handler.rs": "71eb38f55168fc61d94c176ccf9da3035d61a56009dd51213170e1141c757692",
+    "codex-rs/core/src/tools/code_mode/execute_spec.rs": "ff1a12d5069d619bf0d68eca7a737a1ce9adbf138a32fb7416869e26f19f3456",
+    "codex-rs/core/src/tools/handlers/shell_spec.rs": "9bca35e50a8abbd643618410b83438ad0b0a0b1140283fa6964aef143f592f49",
+    "codex-rs/core/src/tools/handlers/shell_spec_tests.rs": "147ef1e07e21e5467cfe109271a75b24172484667270bc61794182d06947f6d9",
+    "codex-rs/thread-manager-sample/src/main.rs": "6c4e9b31a196f9b4874fe987f1b4d1b299c539957ff22e8da59b486adad6ee54",
+    "codex-rs/core/tests/inference_pause.rs": "95a815b316a308e1e253f6c0536d22910a0ea77f02f3b27831c5b002f432d2ec",
+    "justfile": "0d96ee7a59ee532e709ac06e7c5d4ce28d8ab7560395ca1f62b896a7c745036f"
+  }
+}

@@ -385,6 +385,7 @@ async fn new_config(
         code_mode: Default::default(),
         background_terminal_max_timeout: 300_000,
         thread_unload_delay: std::time::Duration::from_secs(/*secs*/ 60),
+        tool_inference_pause_threshold_ms: None,
         ghost_snapshot: GhostSnapshotConfig::default(),
         multi_agent_v2: MultiAgentV2Config::default(),
         max_goal_token_budget: None,

@@ -8671,6 +8671,12 @@
       "minimum": 0.0,
       "type": "integer"
     },
+    "tool_inference_pause_threshold_ms": {
+      "description": "Keep foreground commands and code cells awaited after this latency, in milliseconds. Unset or zero preserves yielding; explicit zero-yield calls retain background control. Positive values are capped at 60000 milliseconds.",
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
     "tool_output_token_limit": {
       "description": "Token budget applied when storing tool/function outputs in the context manager.",
       "format": "uint",

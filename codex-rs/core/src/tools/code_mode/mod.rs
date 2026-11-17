@@ -1,3 +1,4 @@
+mod completion_wait;
 mod delegate;
 mod execute_handler;
 pub(crate) mod execute_spec;
@@ -275,11 +276,34 @@ fn handle_runtime_response(
     wall_time: Duration,
     experimental_show_cell_overhead: bool,
 ) -> CodeModeToolOutput {
+    handle_runtime_response_with_output(
+        model_info,
+        response,
+        max_output_tokens,
+        output_truncation,
+        wall_time,
+        experimental_show_cell_overhead,
+        None,
+    )
+}
+
+fn handle_runtime_response_with_output(
+    model_info: &codex_protocol::openai_models::ModelInfo,
+    response: RuntimeResponse,
+    max_output_tokens: Option<usize>,
+    output_truncation: CodeModeOutputTruncation,
+    wall_time: Duration,
+    experimental_show_cell_overhead: bool,
+    foreground: Option<completion_wait::ForegroundOutput>,
+) -> CodeModeToolOutput {
     let script_status = format_script_status(&response);
     let supports_original = can_request_original_image_detail(model_info);
-    let host_duration = response
-        .code_mode_host_duration()
+    let host_duration = foreground
+        .as_ref()
+        .and_then(|output| output.host_duration)
+        .or_else(|| response.code_mode_host_duration())
         .filter(|_| experimental_show_cell_overhead);
+    let foreground_mode = foreground.is_some();
 
     let (content_items, error_text) = match response {
         RuntimeResponse::Yielded { content_items, .. }
@@ -290,7 +314,11 @@ fn handle_runtime_response(
             ..
         } => (content_items, error_text),
     };
-    let mut content_items = into_function_call_output_content_items(content_items);
+    let mut combined = foreground
+        .map(|output| output.content_items)
+        .unwrap_or_default();
+    combined.extend(into_function_call_output_content_items(content_items));
+    let mut content_items = combined;
     sanitize_image_detail_items(supports_original, &mut content_items);
     let success = error_text.is_none();
     if output_truncation == CodeModeOutputTruncation::Client {
@@ -299,6 +327,8 @@ fn handle_runtime_response(
                 text: format!("Script error:\n{error_text}"),
             });
         }
+    }
+    if output_truncation == CodeModeOutputTruncation::Client || foreground_mode {
         content_items = truncate_code_mode_result(content_items, max_output_tokens);
     }
     CodeModeToolOutput::new(

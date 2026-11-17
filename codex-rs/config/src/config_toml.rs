@@ -365,6 +365,10 @@ pub struct ConfigToml {
     /// unloads it. Defaults to 60 (1 minute); zero unloads immediately.
     /// Resolved when each thread is loaded; request config overrides apply per thread.
     pub thread_unload_delay_secs: Option<u64>,
+    /// Keep foreground commands and code cells awaited after this latency, in milliseconds.
+    /// Unset or zero preserves yielding; explicit zero-yield calls retain background control.
+    /// Positive values are capped at 60000 milliseconds.
+    pub tool_inference_pause_threshold_ms: Option<u64>,
 
     /// Deprecated: ignored.
     #[schemars(skip)]

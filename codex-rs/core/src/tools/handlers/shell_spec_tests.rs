@@ -27,6 +27,9 @@ fn exec_command_tool_matches_expected_spec() {
         "Wait before yielding output. Defaults to 10000 ms; effective range is 250-30000 ms."
     };
 
+    let yield_time_ms_description = format!(
+        "{yield_time_ms_description} When automatic foreground waiting is configured, foreground commands stay awaited until completion, including PTYs. Set yield_time_ms to 0 explicitly for background or interactive control."
+    );
     let mut properties = BTreeMap::from([
         (
             "cmd".to_string(),

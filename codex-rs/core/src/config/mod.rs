@@ -1148,6 +1148,8 @@ pub struct Config {
 
     /// Idle timeout for unsubscribed app-server threads.
     pub thread_unload_delay: Duration,
+    /// Latency threshold for awaiting foreground tools without another model request.
+    pub tool_inference_pause_threshold_ms: Option<u64>,
 
     /// Compatibility-only settings retained for legacy `ghost_snapshot`
     /// config loading.
@@ -4156,6 +4158,10 @@ impl Config {
                 "thread_unload_delay_secs is too large",
             ));
         }
+        let tool_inference_pause_threshold_ms = cfg
+            .tool_inference_pause_threshold_ms
+            .filter(|value| *value > 0)
+            .map(|value| value.min(60_000));
 
         let ghost_snapshot = {
             let mut config = GhostSnapshotConfig::default();
@@ -4735,6 +4741,7 @@ impl Config {
             code_mode,
             background_terminal_max_timeout,
             thread_unload_delay,
+            tool_inference_pause_threshold_ms,
             ghost_snapshot,
             multi_agent_v2,
             token_budget,

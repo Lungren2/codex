@@ -648,7 +648,21 @@ impl UnifiedExecProcessManager {
             .await;
         }
 
-        let yield_time_ms = clamp_yield_time(prepared.yield_time_ms);
+        let inference_pause_threshold_ms = context
+            .step_context
+            .turn
+            .config
+            .tool_inference_pause_threshold_ms
+            .filter(|_| completion.is_none() && prepared.yield_time_ms != 0);
+        let yield_time_ms = inference_pause_threshold_ms
+            .unwrap_or_else(|| clamp_yield_time(prepared.yield_time_ms));
+        let max_output_tokens = if inference_pause_threshold_ms.is_some() {
+            Some(crate::tools::foreground_wait::output_budget(
+                prepared.max_output_tokens,
+            ))
+        } else {
+            prepared.max_output_tokens
+        };
         // For the initial exec_command call, we both stream output to events
         // (via start_streaming_output above) and collect a snapshot here for
         // the tool response body.
@@ -659,12 +673,27 @@ impl UnifiedExecProcessManager {
         let deadline = start
             .checked_add(wait)
             .ok_or_else(|| UnifiedExecError::process_failed("timeout_ms is too large".into()))?;
-        let collected_output = Self::collect_output_until_deadline(
+        let mut collected_output = Self::collect_output_until_deadline(
             process.output_handles(),
             Some(context.session.subscribe_elicitation_pause_state()),
             deadline,
         )
         .await;
+        // A latency boundary does not require another inference request.
+        // Explicit oneshot execution deadlines retain their existing authority.
+        while inference_pause_threshold_ms.is_some()
+            && !process.has_exited()
+            && !process.cancellation_token().is_cancelled()
+        {
+            collected_output.push_buffer(
+                Self::collect_output_until_deadline(
+                    process.output_handles(),
+                    Some(context.session.subscribe_elicitation_pause_state()),
+                    Instant::now() + Duration::from_secs(60),
+                )
+                .await,
+            );
+        }
         if let Some(completion) = completion.as_mut()
             && !process.has_exited()
         {
@@ -863,7 +892,7 @@ impl UnifiedExecProcessManager {
                 .model_info
                 .truncation_policy
                 .into(),
-            max_output_tokens: prepared.max_output_tokens,
+            max_output_tokens,
             process_id: response_process_id,
             exit_code,
             original_token_count: Some(original_token_count),
