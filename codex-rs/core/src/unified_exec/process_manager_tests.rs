@@ -477,6 +477,7 @@ async fn failed_initial_end_for_unstored_process_uses_fallback_output() {
     .prepare(ExecCommandLifetime::Interactive)
     .expect("prepare command");
     let request = ExecCommandRequest {
+        output_format: crate::tools::command_output::CommandOutputFormat::Raw,
         prepared,
         process_id: 123,
         network: None,

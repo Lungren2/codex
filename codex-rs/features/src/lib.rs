@@ -167,6 +167,10 @@ pub enum Feature {
     UnifiedExec,
     /// Allow unified exec commands to allocate an interactive terminal.
     UnifiedExecTty,
+    /// Allow grouped rendering of complete numbered search output.
+    GroupedSearchOutput,
+    /// Allow diagnostic views and retrieval of their original command output.
+    DiagnosticCommandOutput,
     /// Removed compatibility flag for the retired patched zsh backend.
     ShellZshFork,
     /// Removed compatibility flag for the retired patched zsh backend.
@@ -1137,6 +1141,18 @@ pub const FEATURES: &[FeatureSpec] = &[
         id: Feature::ShellTool,
         key: "shell_tool",
         stage: Stage::Stable,
+        default_enabled: true,
+    },
+    FeatureSpec {
+        id: Feature::GroupedSearchOutput,
+        key: "grouped_search_output",
+        stage: Stage::UnderDevelopment,
+        default_enabled: true,
+    },
+    FeatureSpec {
+        id: Feature::DiagnosticCommandOutput,
+        key: "diagnostic_command_output",
+        stage: Stage::UnderDevelopment,
         default_enabled: true,
     },
     FeatureSpec {

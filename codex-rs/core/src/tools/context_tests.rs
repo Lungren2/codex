@@ -415,6 +415,7 @@ fn exec_command_tool_output_formats_truncated_response() {
         arguments: "{}".to_string(),
     };
     let output = ExecCommandToolOutput {
+        model_output: None,
         event_call_id: "call-42".to_string(),
         chunk_id: "abc123".to_string(),
         wall_time: std::time::Duration::from_millis(1250),
@@ -458,6 +459,42 @@ fn exec_command_tool_output_formats_truncated_response() {
 }
 
 #[test]
+fn exec_command_alternate_view_applies_to_model_responses_only() {
+    let payload = ToolPayload::Function {
+        arguments: "{}".to_string(),
+    };
+    let original = "src/widget/main.rs:7: one\nsrc/widget/main.rs:8: two\n";
+    let view = "File: src/widget/main.rs\n7: one\n8: two\n";
+    let output = ExecCommandToolOutput {
+        event_call_id: "grouped-search".to_string(),
+        chunk_id: String::new(),
+        wall_time: std::time::Duration::ZERO,
+        raw_output: original.into(),
+        model_output: Some(view.to_string()),
+        truncation_policy: TruncationPolicy::Tokens(400),
+        max_output_tokens: None,
+        process_id: None,
+        exit_code: Some(0),
+        original_token_count: None,
+        hook_command: Some("rg -n widget".to_string()),
+        tool_cwd: None,
+    };
+    let ResponseInputItem::FunctionCallOutput { output: direct, .. } =
+        output.to_response_item("grouped-search", &payload)
+    else {
+        panic!("expected FunctionCallOutput");
+    };
+    let header = "Wall time: 0.0000 seconds\nProcess exited with code 0\nOutput:\n";
+    assert_eq!(direct.body.to_text(), Some(format!("{header}{view}")));
+    assert_eq!(output.code_mode_result(&payload)["output"], view);
+    assert_eq!(output.log_output(), format!("{header}{original}"));
+    assert_eq!(
+        output.post_tool_use_response("grouped-search", &payload),
+        Some(serde_json::json!(original)),
+    );
+}
+
+#[test]
 fn exec_command_tool_output_reserves_metadata_budget_and_preserves_policy_units() {
     let payload = ToolPayload::Function {
         arguments: "{}".to_string(),
@@ -471,6 +508,7 @@ fn exec_command_tool_output_reserves_metadata_budget_and_preserves_policy_units(
         (TruncationPolicy::Tokens(50), "tokens truncated"),
     ] {
         let response = ExecCommandToolOutput {
+            model_output: None,
             event_call_id: "call-42".to_string(),
             chunk_id: "abc123".to_string(),
             wall_time: std::time::Duration::from_millis(/*millis*/ 1250),
@@ -514,6 +552,7 @@ fn exec_command_tool_output_preserves_omission_metadata_when_truncated() {
         "z".repeat(/*n*/ 100)
     );
     let mut output = ExecCommandToolOutput {
+        model_output: None,
         event_call_id: "call-omitted".to_string(),
         chunk_id: "abc123".to_string(),
         wall_time: std::time::Duration::from_millis(/*millis*/ 1250),

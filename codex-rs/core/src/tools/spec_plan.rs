@@ -19,6 +19,7 @@ use crate::tools::handlers::ListMcpResourceTemplatesHandler;
 use crate::tools::handlers::ListMcpResourcesHandler;
 use crate::tools::handlers::NewContextWindowHandler;
 use crate::tools::handlers::PlanHandler;
+use crate::tools::handlers::ReadCommandOutputHandler;
 use crate::tools::handlers::ReadMcpResourceHandler;
 use crate::tools::handlers::RequestPermissionsHandler;
 use crate::tools::handlers::RequestPluginInstallHandler;
@@ -1262,6 +1263,12 @@ fn add_shell_tools(context: &CoreToolPlanContext<'_>, registry: &mut ToolRegistr
         exec_permission_approvals_enabled,
         include_environment_id,
         include_windows_shell_guidance: should_include_windows_shell_guidance(context.environments),
+        grouped_search_output: features.enabled(Feature::GroupedSearchOutput),
+        diagnostic_command_output: features.enabled(Feature::DiagnosticCommandOutput)
+            && context
+                .tool_policy
+                .allows(&ReadCommandOutputHandler.tool_name())
+            && context.tool_policy.allows(&ToolName::plain("exec_command")),
     };
     if features.enabled(Feature::UnifiedExec) {
         registry.add(ExecCommandHandler::new(options));
@@ -1271,6 +1278,9 @@ fn add_shell_tools(context: &CoreToolPlanContext<'_>, registry: &mut ToolRegistr
         // unified exec disabled. Preserve command execution without exposing a
         // resumable process or write_stdin authority prohibited by policy.
         registry.add(ExecCommandHandler::one_shot(options));
+    }
+    if options.diagnostic_command_output {
+        registry.add(ReadCommandOutputHandler);
     }
 }
 

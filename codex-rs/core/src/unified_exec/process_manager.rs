@@ -31,6 +31,7 @@ use crate::sandboxing::ExecOptions;
 use crate::sandboxing::ExecRequest;
 use crate::sandboxing::ExecServerEnvConfig;
 use crate::tools::ApprovalContext;
+use crate::tools::command_output::CommandOutputFormat;
 use crate::tools::context::ExecCommandToolOutput;
 use crate::tools::events::ToolEmitter;
 use crate::tools::events::ToolEventCtx;
@@ -705,10 +706,9 @@ impl UnifiedExecProcessManager {
         }
         let wall_time = Instant::now().saturating_duration_since(start);
 
-        let original_token_count = usize::try_from(approx_tokens_from_byte_count(
-            collected_output.total_bytes(),
-        ))
-        .unwrap_or(usize::MAX);
+        let collected_bytes = collected_output.total_bytes();
+        let original_token_count =
+            usize::try_from(approx_tokens_from_byte_count(collected_bytes)).unwrap_or(usize::MAX);
         let output_omitted_bytes = NonZeroUsize::new(collected_output.omitted_bytes());
         let collected = CapturedStream::from(&collected_output);
         let text = collected.text.clone();
@@ -881,7 +881,8 @@ impl UnifiedExecProcessManager {
             (None, exit_code)
         };
 
-        let response = ExecCommandToolOutput {
+        let mut response = ExecCommandToolOutput {
+            model_output: None,
             event_call_id: context.call_id.clone(),
             chunk_id,
             wall_time,
@@ -900,7 +901,31 @@ impl UnifiedExecProcessManager {
             tool_cwd: (!prepared.turn_environment.environment.is_remote())
                 .then(|| prepared.cwd.clone()),
         };
-
+        // The process may have exited before its output pipes closed. Require the
+        // complete transcript before grouping matches or offering a recoverable log.
+        let output_handles = process.output_handles();
+        if request.output_format != CommandOutputFormat::Raw
+            && !prepared.tty
+            && !process.timed_out()
+            && response.process_id.is_none()
+            && response.raw_output.omitted_bytes == 0
+            && let Some(exit_code) = response.exit_code
+            && output_handles.output_closed.load(Ordering::Acquire)
+            && output_handles
+                .output_buffer
+                .lock()
+                .await
+                .transcript
+                .total_bytes()
+                == collected_bytes
+        {
+            response.model_output = self.command_output.render(
+                request.output_format,
+                exit_code,
+                &response.raw_output.text,
+                response.model_view_budget(),
+            );
+        }
         Ok(response)
     }
 
@@ -1149,6 +1174,7 @@ impl UnifiedExecProcessManager {
         };
 
         let response = ExecCommandToolOutput {
+            model_output: None,
             event_call_id,
             chunk_id,
             wall_time,

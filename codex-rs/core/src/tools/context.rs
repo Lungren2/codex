@@ -427,6 +427,8 @@ pub struct ExecCommandToolOutput {
     pub wall_time: Duration,
     /// Output retained by collection, before model-facing truncation.
     pub(crate) raw_output: CapturedStream,
+    /// Alternate representation for model-facing responses only.
+    pub(crate) model_output: Option<String>,
     pub truncation_policy: TruncationPolicy,
     pub max_output_tokens: Option<usize>,
     pub process_id: Option<i32>,
@@ -511,10 +513,13 @@ impl ToolOutput for ExecCommandToolOutput {
             exit_code: self.exit_code,
             session_id: self.process_id,
             original_token_count: self.original_token_count,
-            output: match self.max_output_tokens {
-                Some(max_tokens) => self.truncated_output(max_tokens),
-                None => self.raw_output.text.clone(),
-            },
+            output: self
+                .model_output
+                .clone()
+                .unwrap_or_else(|| match self.max_output_tokens {
+                    Some(max_tokens) => self.truncated_output(max_tokens),
+                    None => self.raw_output.text.clone(),
+                }),
         };
 
         serde_json::to_value(result).unwrap_or_else(|err| {
@@ -531,6 +536,14 @@ impl ExecCommandToolOutput {
         } else {
             self.truncation_policy
         }
+    }
+
+    pub(crate) fn model_view_budget(&self) -> usize {
+        self.model_output_policy().byte_budget().min(
+            with_serialization_allowance(self.truncation_policy)
+                .byte_budget()
+                .saturating_sub(self.response_header().len() + 1),
+        )
     }
 
     pub(crate) fn truncated_output(&self, max_tokens: usize) -> String {
@@ -570,6 +583,9 @@ impl ExecCommandToolOutput {
 
     fn response_text(&self) -> String {
         let header = self.response_header();
+        if let Some(view) = &self.model_output {
+            return format!("{header}\n{view}");
+        }
         let output_budget = with_serialization_allowance(self.truncation_policy)
             .byte_budget()
             .saturating_sub(header.len().saturating_add(/*rhs*/ 1));

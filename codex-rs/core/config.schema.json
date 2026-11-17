@@ -1014,6 +1014,9 @@
             "deferred_tool_world_state": {
               "type": "boolean"
             },
+            "diagnostic_command_output": {
+              "type": "boolean"
+            },
             "elevated_windows_sandbox": {
               "type": "boolean"
             },
@@ -1060,6 +1063,9 @@
               "type": "boolean"
             },
             "goals": {
+              "type": "boolean"
+            },
+            "grouped_search_output": {
               "type": "boolean"
             },
             "guardian_approval": {
@@ -7761,6 +7767,9 @@
         "deferred_tool_world_state": {
           "type": "boolean"
         },
+        "diagnostic_command_output": {
+          "type": "boolean"
+        },
         "elevated_windows_sandbox": {
           "type": "boolean"
         },
@@ -7807,6 +7816,9 @@
           "type": "boolean"
         },
         "goals": {
+          "type": "boolean"
+        },
+        "grouped_search_output": {
           "type": "boolean"
         },
         "guardian_approval": {

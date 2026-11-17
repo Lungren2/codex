@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::function_tool::FunctionCallError;
 use crate::maybe_emit_implicit_skill_invocation;
+use crate::tools::command_output::CommandOutputFormat;
 use crate::tools::context::ExecCommandToolOutput;
 use crate::tools::context::ToolEnvironments;
 use crate::tools::context::ToolInvocation;
@@ -53,6 +54,8 @@ pub(crate) struct ExecCommandHandlerOptions {
     pub(crate) exec_permission_approvals_enabled: bool,
     pub(crate) include_environment_id: bool,
     pub(crate) include_windows_shell_guidance: bool,
+    pub(crate) grouped_search_output: bool,
+    pub(crate) diagnostic_command_output: bool,
 }
 
 pub struct ExecCommandHandler {
@@ -69,6 +72,8 @@ impl Default for ExecCommandHandler {
                 exec_permission_approvals_enabled: false,
                 include_environment_id: false,
                 include_windows_shell_guidance: cfg!(windows),
+                grouped_search_output: false,
+                diagnostic_command_output: false,
             },
         }
     }
@@ -107,13 +112,27 @@ impl ToolExecutor<ToolInvocation> for ExecCommandHandler {
             ExecCommandLifetime::Interactive => spec,
             ExecCommandLifetime::OneShot => one_shot_exec_command_spec(spec),
         };
-        if !self.options.allow_tty
-            && let ToolSpec::Function(spec) = &mut spec
-        {
-            spec.parameters
-                .properties
-                .get_or_insert_default()
-                .remove("tty");
+        if let ToolSpec::Function(spec) = &mut spec {
+            let properties = spec.parameters.properties.get_or_insert_default();
+            if !self.options.allow_tty {
+                properties.remove("tty");
+            }
+            if self.options.grouped_search_output || self.options.diagnostic_command_output {
+                let mut formats = vec![serde_json::json!("raw")];
+                let mut description = "Defaults to raw.".to_string();
+                if self.options.grouped_search_output {
+                    formats.push(serde_json::json!("grouped_search"));
+                    description.push_str(" Use grouped_search for numbered file matches (e.g. rg -n --with-filename --color never). Matches are grouped under file headers.");
+                }
+                if self.options.diagnostic_command_output {
+                    formats.push(serde_json::json!("diagnostics"));
+                    description.push_str(" Use diagnostics for compiler or test commands. Large failures may return excerpts with an output_id for read_command_output.");
+                }
+                properties.insert(
+                    "output_format".to_string(),
+                    JsonSchema::string_enum(formats, Some(description)),
+                );
+            }
         }
         spec
     }
@@ -165,6 +184,17 @@ impl ExecCommandHandler {
         let turn_environment = selected_executor(&environments, &step_context.environments)?;
         let parsed =
             ParsedExecCommand::parse(&arguments, &session, &step_context, turn_environment)?;
+        let output_format = parsed.args.output_format;
+        let format_enabled = match output_format {
+            CommandOutputFormat::Raw => true,
+            CommandOutputFormat::GroupedSearch => self.options.grouped_search_output,
+            CommandOutputFormat::Diagnostics => self.options.diagnostic_command_output,
+        };
+        if !format_enabled {
+            return Err(FunctionCallError::RespondToModel(
+                "Requested output_format is disabled. Use raw output.".to_string(),
+            ));
+        }
         maybe_emit_implicit_skill_invocation(
             &session,
             &step_context,
@@ -192,6 +222,7 @@ impl ExecCommandHandler {
         .await;
         if let Some(output) = intercepted_patch? {
             return Ok(boxed_tool_output(ExecCommandToolOutput {
+                model_output: None,
                 event_call_id: String::new(),
                 chunk_id: String::new(),
                 wall_time: std::time::Duration::ZERO,
@@ -225,6 +256,7 @@ impl ExecCommandHandler {
         let tool_cwd =
             (!prepared.turn_environment.environment.is_remote()).then(|| prepared.cwd.clone());
         let request = ExecCommandRequest {
+            output_format,
             prepared,
             process_id,
             network: context.step_context.turn.network.clone(),
@@ -248,6 +280,7 @@ impl ExecCommandHandler {
                 let original_token_count =
                     original_token_count.unwrap_or_else(|| approx_token_count(&output_text));
                 Ok(boxed_tool_output(ExecCommandToolOutput {
+                    model_output: None,
                     event_call_id: context.call_id.clone(),
                     chunk_id: generate_chunk_id(),
                     wall_time: output.duration,

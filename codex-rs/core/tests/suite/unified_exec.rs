@@ -37,6 +37,7 @@ use codex_protocol::user_input::UserInput;
 use codex_utils_output_truncation::approx_tokens_from_byte_count;
 use codex_utils_path_uri::PathUri;
 use core_test_support::TempDirExt;
+use core_test_support::TestTargetOs;
 use core_test_support::assert_regex_match;
 use core_test_support::managed_network_requirements_loader;
 use core_test_support::process::process_is_alive;
@@ -58,6 +59,7 @@ use core_test_support::test_codex::TestCodex;
 use core_test_support::test_codex::TestCodexHarness;
 use core_test_support::test_codex::test_codex;
 use core_test_support::test_codex::turn_permission_fields;
+use core_test_support::test_target_os;
 use core_test_support::wait_for_event;
 use core_test_support::wait_for_event_match;
 use core_test_support::wait_for_event_with_timeout;
@@ -188,7 +190,13 @@ async fn wait_for_raw_unified_exec_output(
     test: &TestCodex,
     call_id: &str,
 ) -> Result<ParsedUnifiedExecOutput> {
-    let content = wait_for_event_match(&test.codex, |event| match event {
+    let content = wait_for_raw_function_output(test, call_id).await;
+    parse_unified_exec_output(&content)
+        .with_context(|| format!("failed to parse raw unified exec output for {call_id}"))
+}
+
+async fn wait_for_raw_function_output(test: &TestCodex, call_id: &str) -> String {
+    wait_for_event_match(&test.codex, |event| match event {
         EventMsg::RawResponseItem(raw) => match &raw.item {
             ResponseItem::FunctionCallOutput {
                 call_id: Some(output_call_id),
@@ -199,10 +207,7 @@ async fn wait_for_raw_unified_exec_output(
         },
         _ => None,
     })
-    .await;
-
-    parse_unified_exec_output(&content)
-        .with_context(|| format!("failed to parse raw unified exec output for {call_id}"))
+    .await
 }
 
 async fn submit_unified_exec_turn(
@@ -2023,6 +2028,96 @@ async fn exec_command_reports_chunk_and_exit_metadata() -> Result<()> {
         "original token count should exceed max_output_tokens"
     );
 
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn command_output_diagnostics_can_recover_original_text_in_the_next_turn() -> Result<()> {
+    skip_if_no_network!(Ok(()));
+    skip_if_sandbox!(Ok(()));
+
+    let server = start_mock_server().await;
+    let test = test_codex()
+        .with_model("gpt-5.5")
+        .build_with_auto_env(&server)
+        .await?;
+    let mut lines = ["Compiling another dependency from the workspace"; 40];
+    let evidence = "linker invocation: missing library widget";
+    let diagnostic = "error: could not link the application";
+    lines[12] = evidence;
+    lines[25] = diagnostic;
+    let quoted = lines.map(|line| format!("'{line}'"));
+    let cmd = if test_target_os() == TestTargetOs::Windows {
+        format!("Write-Output {}; exit 1", quoted.join(", "))
+    } else {
+        format!("printf '%s\\n' {}; exit 1", quoted.join(" "))
+    };
+    let args = json!({"cmd": cmd, "output_format": "diagnostics", "yield_time_ms": 10000});
+    let exec_call_id = "exec-diagnostics";
+    mount_sse_sequence(
+        &server,
+        vec![
+            sse(vec![
+                ev_response_created("resp-diagnostic"),
+                ev_function_call(exec_call_id, "exec_command", &args.to_string()),
+                ev_completed("resp-diagnostic"),
+            ]),
+            sse(vec![
+                ev_assistant_message("msg-diagnostic", "checked the diagnostic"),
+                ev_completed("resp-diagnostic-done"),
+            ]),
+        ],
+    )
+    .await;
+    submit_unified_exec_turn(&test, "Run the failing build", PermissionProfile::Disabled).await?;
+    let result = wait_for_raw_unified_exec_output(&test, exec_call_id).await?;
+    assert_eq!(result.exit_code, Some(1));
+    assert!(result.output.contains(diagnostic));
+    assert!(!result.output.contains(evidence));
+    let (_, id) = result
+        .output
+        .lines()
+        .next()
+        .unwrap()
+        .rsplit_once(' ')
+        .unwrap();
+    let args = json!({"output_id": id.trim_end_matches('.'), "query": "missing library"});
+    wait_for_event(&test.codex, |event| {
+        matches!(event, EventMsg::TurnComplete(_))
+    })
+    .await;
+
+    let read_call_id = "read-diagnostics";
+    mount_sse_sequence(
+        &server,
+        vec![
+            sse(vec![
+                ev_response_created("resp-read"),
+                ev_function_call(read_call_id, "read_command_output", &args.to_string()),
+                ev_completed("resp-read"),
+            ]),
+            sse(vec![
+                ev_assistant_message("msg-read", "checked the original evidence"),
+                ev_completed("resp-read-done"),
+            ]),
+        ],
+    )
+    .await;
+    submit_unified_exec_turn(
+        &test,
+        "Check the original linker output",
+        PermissionProfile::Disabled,
+    )
+    .await?;
+    assert!(
+        wait_for_raw_function_output(&test, read_call_id)
+            .await
+            .contains(evidence)
+    );
+    wait_for_event(&test.codex, |event| {
+        matches!(event, EventMsg::TurnComplete(_))
+    })
+    .await;
     Ok(())
 }
 

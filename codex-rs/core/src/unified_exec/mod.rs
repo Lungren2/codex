@@ -105,6 +105,7 @@ impl UnifiedExecContext {
 
 #[derive(Debug)]
 pub(crate) struct ExecCommandRequest {
+    pub(crate) output_format: crate::tools::command_output::CommandOutputFormat,
     pub prepared: PreparedExecCommand,
     pub process_id: i32,
     pub network: Option<NetworkProxy>,
@@ -158,12 +159,14 @@ impl ProcessStore {
 pub(crate) struct UnifiedExecProcessManager {
     process_store: Mutex<ProcessStore>,
     max_write_stdin_yield_time_ms: u64,
+    pub(crate) command_output: crate::tools::command_output::CommandOutputStore,
 }
 
 impl UnifiedExecProcessManager {
     pub(crate) fn new(max_write_stdin_yield_time_ms: u64) -> Self {
         Self {
             process_store: Mutex::new(ProcessStore::default()),
+            command_output: crate::tools::command_output::CommandOutputStore::default(),
             max_write_stdin_yield_time_ms: max_write_stdin_yield_time_ms
                 .max(MIN_EMPTY_YIELD_TIME_MS),
         }

@@ -79,6 +79,8 @@ pub(crate) struct ExecCommandArgs {
     #[serde(default)]
     max_output_tokens: Option<usize>,
     #[serde(default)]
+    output_format: crate::tools::command_output::CommandOutputFormat,
+    #[serde(default)]
     sandbox_permissions: Option<SandboxPermissions>,
     #[serde(default)]
     additional_permissions: Option<AdditionalPermissionProfile>,
